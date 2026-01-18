@@ -1,0 +1,46 @@
+# Plumber Configuration Example
+# Copy this file to ~/.config/browser-pipe/plumber.yaml
+
+settings:
+  # Folder to save snapshots. Supports leading "~" for user home.
+  snapshot_folder: "~/ReadingRoom"
+  
+  # Formats to save: 
+  # - "html": Cleaned HTML with readability main content
+  # - "md":   Markdown (text content)
+  snapshot_formats: ["html", "md"] 
+
+browsers:
+  # Aliases mapped to system commands.
+  # Ensure these executables are in your $PATH or use absolute paths.
+  chrome: "google-chrome"
+  firefox: "firefox"
+  brave: "brave-browser"
+  edge: "microsoft-edge-stable"
+  
+  # You can define custom browsers or scripts here
+  # safari: "open -a Safari" # macOS example
+
+toggles:
+  # The "Toggle" feature defines what happens when you click the extension icon.
+  # Format: "origin_browser": "target_browser"
+  chrome: "firefox"
+  firefox: "chrome"
+  brave: "chrome"
+  edge: "chrome"
+
+rules:
+  # Regex-based routing rules.
+  # Evaluated in order. First match wins.
+  
+  # Example: Always open work-related sites in Chrome
+  - match: ".*telus.*|.*jira.*"
+    target: "chrome"
+    
+  # Example: Automatically snapshot reading sites
+  - match: "medium.com|substack.com"
+    target: "snapshot"
+    
+  # Example: YouTube always in Firefox
+  - match: "youtube.com|youtu.be"
+    target: "firefox"

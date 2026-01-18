@@ -1,0 +1,340 @@
+package main
+
+import (
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
+
+	"github.com/go-shiori/go-readability"
+	"gopkg.in/yaml.v3"
+)
+
+// --- Configuration Structures ---
+
+type Config struct {
+	Settings Settings          `yaml:"settings"`
+	Browsers map[string]string `yaml:"browsers"`
+	Toggles  map[string]string `yaml:"toggles"`
+	Rules    []Rule            `yaml:"rules"`
+}
+
+type Settings struct {
+	SnapshotFolder  string   `yaml:"snapshot_folder"`
+	SnapshotFormats []string `yaml:"snapshot_formats"`
+}
+
+type Rule struct {
+	Match  string `yaml:"match"`
+	Target string `yaml:"target"`
+}
+
+// --- Message Structures ---
+
+type Envelope struct {
+	ID        string `json:"id"`
+	Origin    string `json:"origin"`
+	URL       string `json:"url"`
+	Target    string `json:"target"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+// --- Global Config ---
+var cfg Config
+
+func main() {
+	// 1. Setup Logging (Stderr)
+	log.SetOutput(os.Stderr)
+	log.SetFlags(0) // Custom format
+
+	log.Println("🔧 Plumber started...")
+
+	// 2. Load Configuration
+	if err := loadConfig(); err != nil {
+		log.Fatalf("❌ Failed to load config: %v", err)
+	}
+
+	// 3. Start Native Messaging Loop
+	startLoop()
+}
+
+// loadConfig loads the YAML configuration from ~/.config/browser-pipe/plumber.yaml
+func loadConfig() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	configPath := filepath.Join(homeDir, ".config", "browser-pipe", "plumber.yaml")
+
+	// Create default config if not exists (optional, but good for first run experience,
+	// though not strictly requested. I will skip creation to strictly follow "Listener" role,
+	// assuming user provides it or we fail. But for robustness, let's just try to read).
+
+	f, err := os.Open(configPath)
+	if err != nil {
+		return fmt.Errorf("could not open config file at %s: %w", configPath, err)
+	}
+	defer f.Close()
+
+	decoder := yaml.NewDecoder(f)
+	if err := decoder.Decode(&cfg); err != nil {
+		return fmt.Errorf("could not decode config: %w", err)
+	}
+	return nil
+}
+
+// startLoop listens on Stdin for Native Messaging messages
+func startLoop() {
+	for {
+		// Native Messaging Protocol:
+		// 1. First 4 bytes: length of message (UInt32, Little Endian)
+		// 2. N bytes: The JSON message
+
+		var length uint32
+		err := binary.Read(os.Stdin, binary.LittleEndian, &length)
+		if err == io.EOF {
+			log.Println("🔌 Stdin closed, exiting.")
+			return
+		}
+		if err != nil {
+			log.Printf("❌ Error reading header: %v", err)
+			return
+		}
+
+		// Cap message size to avoid OOM or malicious input (e.g., 10MB)
+		if length > 10*1024*1024 {
+			log.Printf("❌ Message too large: %d bytes", length)
+			// Skip or exit? Exiting is safer for Native Messaging.
+			return
+		}
+
+		msgBuf := make([]byte, length)
+		_, err = io.ReadFull(os.Stdin, msgBuf)
+		if err != nil {
+			log.Printf("❌ Error reading message body: %v", err)
+			return
+		}
+
+		var env Envelope
+		if err := json.Unmarshal(msgBuf, &env); err != nil {
+			log.Printf("❌ Error decoding JSON: %v", err)
+			continue
+		}
+
+		// Handle the message
+		handleMessage(env)
+	}
+}
+
+func handleMessage(env Envelope) {
+	// Structured Log
+	log.Printf("[%s] [%s] -> [%s] : [%s]",
+		time.Unix(env.Timestamp, 0).Format(time.RFC3339),
+		env.Origin,
+		env.Target,
+		env.URL,
+	)
+
+	// Clean URL
+	cleanedURL := cleanURL(env.URL)
+	if cleanedURL != env.URL {
+		log.Printf("   Let's clean that up: %s -> %s", env.URL, cleanedURL)
+	}
+	env.URL = cleanedURL
+
+	// Determine Target
+	target := env.Target
+
+	// Rule-based routing if target is empty or "toggle" isn't strictly enforced yet (but spec says Toggle is explicit)
+	// Spec says: "If target is empty, the Plumber uses its routing rules."
+	if target == "" {
+		for _, rule := range cfg.Rules {
+			matched, _ := regexp.MatchString(rule.Match, env.URL)
+			if matched {
+				target = rule.Target
+				log.Printf("   Matched Rule: '%s' -> Target: '%s'", rule.Match, target)
+				break
+			}
+		}
+	}
+
+	// Logic for "toggle"
+	if target == "toggle" {
+		if val, ok := cfg.Toggles[env.Origin]; ok {
+			target = val
+		} else {
+			log.Printf("   ⚠️ No toggle defined for origin '%s'", env.Origin)
+			return
+		}
+	}
+
+	// Execution
+	if target == "snapshot" {
+		if err := performSnapshot(env.URL); err != nil {
+			log.Printf("   ❌ Snapshot failed: %v", err)
+		}
+	} else {
+		// Assume target is a browser alias
+		launchBrowser(target, env.URL)
+	}
+}
+
+func cleanURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL // Return parsing failed, return original
+	}
+
+	q := u.Query()
+	paramsToDelete := []string{
+		"utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+		"fbclid", "gclid", "ref",
+	}
+
+	for _, p := range paramsToDelete {
+		q.Del(p)
+	}
+
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+func performSnapshot(targetURL string) error {
+	log.Printf("   📸 Snapshotting: %s", targetURL)
+
+	// 1. Fetch and Readability
+	// go-readability handles fetching internally if we use FromURL
+	article, err := readability.FromURL(targetURL, 30*time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to extract content: %w", err)
+	}
+
+	// 2. Prepare Output Path
+	// Resolve ~ in path
+	saveDir := cfg.Settings.SnapshotFolder
+	if strings.HasPrefix(saveDir, "~/") {
+		home, _ := os.UserHomeDir()
+		saveDir = filepath.Join(home, saveDir[2:])
+	}
+
+	if err := os.MkdirAll(saveDir, 0755); err != nil {
+		return fmt.Errorf("failed to create snapshot dir: %w", err)
+	}
+
+	timestamp := time.Now().Format("2006-01-02-1504")
+
+	// Create a safe slug
+	slug := sanitizeFilename(article.Title)
+	if slug == "" {
+		slug = "untitled"
+	}
+	baseFilename := fmt.Sprintf("%s-%s", timestamp, slug)
+
+	createdFiles := []string{}
+
+	// 3. Save Formats
+	for _, fmtType := range cfg.Settings.SnapshotFormats {
+		path := filepath.Join(saveDir, baseFilename+"."+fmtType)
+		var content []byte
+
+		switch fmtType {
+		case "html":
+			// Simple clean HTML wrapper
+			html := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>%s</title>
+<style>body{font-family:sans-serif;max-width:800px;margin:2em auto;line-height:1.6;padding:0 1em;}img{max-width:100%%;height:auto;}</style>
+</head>
+<body>
+<h1>%s</h1>
+%s
+</body>
+</html>`, article.Title, article.Title, article.Content)
+			content = []byte(html)
+		case "md":
+			content = []byte(article.TextContent) // Note: readability.TextContent isn't markdown, it's plain text.
+			// go-readability doesn't output markdown directly.
+			// Ideally we would use a html-to-markdown converter here.
+			// But for now, sticking to the libraries requested.
+			// Wait, the prompt implies "clean, readable local file (.md or .html)".
+			// If the user expects MD, they might want a converter.
+			// However, since I can't easily add uncited deps, I will write the TextContent as MD
+			// or maybe just the HTML Content? TextContent is just strip tags.
+			// Let's stick to TextContent for now or maybe just wrap it.
+			// Actually, let's just save the text content.
+			// Improvement: The user might have a specific expectation.
+			// I'll stick to simple text for now to avoid bloating dependencies unless required.
+			// UPDATE: To make it slightly better 'markdown', I'll just use the article.Title as a header.
+			content = []byte(fmt.Sprintf("# %s\n\n%s", article.Title, article.TextContent))
+		}
+
+		if len(content) > 0 {
+			if err := os.WriteFile(path, content, 0644); err != nil {
+				log.Printf("   ❌ Failed to write %s: %v", fmtType, err)
+			} else {
+				log.Printf("   💾 Saved: %s", path)
+				createdFiles = append(createdFiles, path)
+			}
+		}
+	}
+
+	// 4. Open in default target
+	// Spec: "Automatically open the resulting local file in the default_target browser."
+	// Wait, "default_target" isn't a defined key in config, it says "default target browser".
+	// Since we don't have a "default" key, we might need to pick one or look at the 'toggles' logic?
+	// Or maybe the 'target' in the message? But the target was 'snapshot'.
+	// I'll assume we open it in the system default or a specific browser from config.
+	// Looking at config example: No "default" key.
+	// However, if we look at `toggles`, maybe we can infer?
+	// Let's assume the user wants it opened in "chrome" or strictly follow a "default" if it existed.
+	// But it doesn't.
+	// The prompt says: "Automatically open the resulting local file in the `default_target` browser."
+	// Maybe they meant the rule target?
+	// Let's assume we just open it with `xdg-open` (system default) or try to find a browser "chrome".
+	// SAFEST BET: Use `xdg-open` on Linux, which respects system default.
+
+	if len(createdFiles) > 0 {
+		// Open the first one (likely HTML if preferred)
+		fileToOpen := createdFiles[0]
+		cmd := exec.Command("xdg-open", fileToOpen) // Linux specific
+		cmd.Start()
+	}
+
+	return nil
+}
+
+func launchBrowser(browserAlias, targetURL string) {
+	cmdName, ok := cfg.Browsers[browserAlias]
+	if !ok {
+		log.Printf("   ❌ Unknown browser alias: '%s'", browserAlias)
+		return
+	}
+
+	log.Printf("   🚀 Launching %s (%s)", browserAlias, cmdName)
+
+	// Prepare command
+	cmd := exec.Command(cmdName, targetURL)
+
+	// Detach process so it doesn't die when plumber dies (if Plumber is short lived, but Plumber is a listener here)
+	// However, browsers usually fork anyway.
+	if err := cmd.Start(); err != nil {
+		log.Printf("   ❌ Failed to launch browser: %v", err)
+	}
+}
+
+func sanitizeFilename(name string) string {
+	// Simple sanitize
+	reg, _ := regexp.Compile("[^a-zA-Z0-9]+")
+	return strings.ToLower(strings.Trim(reg.ReplaceAllString(name, "-"), "-"))
+}
