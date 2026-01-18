@@ -44,3 +44,15 @@ rules:
   # Example: YouTube always in Firefox
   - match: "youtube.com|youtu.be"
     target: "firefox"
+
+actions:
+  # Example: Download audio from YouTube
+  download_music:
+    cmd: "yt-dlp"
+    args: 
+      - "-x"
+      - "--audio-format"
+      - "mp3"
+      - "-P"
+      - "~/Music"
+      - "{url}"

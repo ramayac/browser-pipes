@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -25,6 +26,7 @@ type Config struct {
 	Browsers map[string]string `yaml:"browsers"`
 	Toggles  map[string]string `yaml:"toggles"`
 	Rules    []Rule            `yaml:"rules"`
+	Actions  map[string]Action `yaml:"actions"`
 }
 
 type Settings struct {
@@ -35,6 +37,11 @@ type Settings struct {
 type Rule struct {
 	Match  string `yaml:"match"`
 	Target string `yaml:"target"`
+}
+
+type Action struct {
+	Cmd  string   `yaml:"cmd"`
+	Args []string `yaml:"args"`
 }
 
 // --- Message Structures ---
@@ -181,10 +188,53 @@ func handleMessage(env Envelope) {
 		if err := performSnapshot(env.URL); err != nil {
 			log.Printf("   ❌ Snapshot failed: %v", err)
 		}
+	} else if action, ok := cfg.Actions[target]; ok {
+		// Custom Action Execution
+		executeAction(target, action, env.URL)
 	} else {
 		// Assume target is a browser alias
 		launchBrowser(target, env.URL)
 	}
+}
+
+func executeAction(name string, action Action, targetURL string) {
+	log.Printf("   🎬 Executing Action: %s", name)
+
+	// Prepare args with substitution
+	cmdArgs := make([]string, len(action.Args))
+	for i, arg := range action.Args {
+		// Simple substitution for now.
+		// Security Note: In a real system we should be careful about shell injection if not using exec.Command directly (which we are below).
+		// However, we are passing arguments to exec.Command, so it's safer than shell execution.
+		cmdArgs[i] = strings.ReplaceAll(arg, "{url}", targetURL)
+	}
+
+	cmd := exec.Command(action.Cmd, cmdArgs...)
+
+	// We might want to see output?
+	// For now, let's just log if it starts.
+	// Maybe piping stdout/stderr to log would be good for debugging actions like yt-dlp.
+
+	if err := cmd.Start(); err != nil {
+		log.Printf("   ❌ Action failed to start: %v", err)
+		return
+	}
+
+	log.Printf("   ✅ Action started: %s (PID: %d)", action.Cmd, cmd.Process.Pid)
+
+	// Fire and forget or wait?
+	// For browsers we fire and forget. For downloads, maybe we want to know if it finished?
+	// But NativeMessaging is request/response-ish or fire-ish.
+	// We don't want to block the plumbers loop for a long download.
+	// So async is correct.
+	go func() {
+		err := cmd.Wait()
+		if err != nil {
+			log.Printf("   ⚠️ Action '%s' finished with error: %v", name, err)
+		} else {
+			log.Printf("   ✨ Action '%s' finished successfully", name)
+		}
+	}()
 }
 
 func cleanURL(rawURL string) string {
@@ -211,8 +261,28 @@ func performSnapshot(targetURL string) error {
 	log.Printf("   📸 Snapshotting: %s", targetURL)
 
 	// 1. Fetch and Readability
-	// go-readability handles fetching internally if we use FromURL
-	article, err := readability.FromURL(targetURL, 30*time.Second)
+	// Custom HTTP Client to set User-Agent (Wikipedia and others block empty/Go-http-client)
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	req, err := http.NewRequest("GET", targetURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to fetch URL: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("failed to fetch URL, status: %d", resp.StatusCode)
+	}
+
+	// Use FromReader instead of FromURL
+	article, err := readability.FromReader(resp.Body, parseURL(targetURL))
 	if err != nil {
 		return fmt.Errorf("failed to extract content: %w", err)
 	}
