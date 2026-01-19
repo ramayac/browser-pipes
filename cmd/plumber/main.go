@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -15,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-shiori/go-readability"
+	"codeberg.org/readeck/go-readability/v2"
 	"gopkg.in/yaml.v3"
 )
 
@@ -302,7 +303,7 @@ func performSnapshot(targetURL string) error {
 	timestamp := time.Now().Format("2006-01-02-1504")
 
 	// Create a safe slug
-	slug := sanitizeFilename(article.Title)
+	slug := sanitizeFilename(article.Title())
 	if slug == "" {
 		slug = "untitled"
 	}
@@ -317,6 +318,11 @@ func performSnapshot(targetURL string) error {
 
 		switch fmtType {
 		case "html":
+			var buf bytes.Buffer
+			if err := article.RenderHTML(&buf); err != nil {
+				log.Printf("   ⚠️ Error rendering HTML: %v", err)
+			}
+
 			// Simple clean HTML wrapper
 			html := fmt.Sprintf(`
 <!DOCTYPE html>
@@ -330,23 +336,14 @@ func performSnapshot(targetURL string) error {
 <h1>%s</h1>
 %s
 </body>
-</html>`, article.Title, article.Title, article.Content)
+</html>`, article.Title(), article.Title(), buf.String())
 			content = []byte(html)
 		case "md":
-			content = []byte(article.TextContent) // Note: readability.TextContent isn't markdown, it's plain text.
-			// go-readability doesn't output markdown directly.
-			// Ideally we would use a html-to-markdown converter here.
-			// But for now, sticking to the libraries requested.
-			// Wait, the prompt implies "clean, readable local file (.md or .html)".
-			// If the user expects MD, they might want a converter.
-			// However, since I can't easily add uncited deps, I will write the TextContent as MD
-			// or maybe just the HTML Content? TextContent is just strip tags.
-			// Let's stick to TextContent for now or maybe just wrap it.
-			// Actually, let's just save the text content.
-			// Improvement: The user might have a specific expectation.
-			// I'll stick to simple text for now to avoid bloating dependencies unless required.
-			// UPDATE: To make it slightly better 'markdown', I'll just use the article.Title as a header.
-			content = []byte(fmt.Sprintf("# %s\n\n%s", article.Title, article.TextContent))
+			var buf bytes.Buffer
+			if err := article.RenderText(&buf); err != nil {
+				log.Printf("   ⚠️ Error rendering Text: %v", err)
+			}
+			content = []byte(fmt.Sprintf("# %s\n\n%s", article.Title(), buf.String()))
 		}
 
 		if len(content) > 0 {
