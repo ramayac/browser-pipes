@@ -5,10 +5,9 @@ settings:
   # Folder to save snapshots. Supports leading "~" for user home.
   snapshot_folder: "~/ReadingRoom"
   
-  # Formats to save: 
-  # - "html": Cleaned HTML with readability main content
-  # - "md":   Markdown (text content)
-  snapshot_formats: ["html", "md"] 
+  # Max allowed size for incoming Native Messaging messages in bytes.
+  # Defaults to 10485760 (10MB) if not set.
+  max_message_size: 10485760 
 
 browsers:
   # Aliases mapped to system commands.
@@ -34,7 +33,7 @@ rules:
   # Evaluated in order. First match wins.
   
   # Example: Always open work-related sites in Chrome
-  - match: ".*telus.*|.*jira.*"
+  - match: ".*confluence.*|.*jira.*"
     target: "chrome"
     
   # Example: Automatically snapshot reading sites

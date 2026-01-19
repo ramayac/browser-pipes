@@ -31,8 +31,8 @@ type Config struct {
 }
 
 type Settings struct {
-	SnapshotFolder  string   `yaml:"snapshot_folder"`
-	SnapshotFormats []string `yaml:"snapshot_formats"`
+	SnapshotFolder string `yaml:"snapshot_folder"`
+	MaxMessageSize int    `yaml:"max_message_size"`
 }
 
 type Rule struct {
@@ -96,6 +96,12 @@ func loadConfig() error {
 	if err := decoder.Decode(&cfg); err != nil {
 		return fmt.Errorf("could not decode config: %w", err)
 	}
+
+	// Set defaults
+	if cfg.Settings.MaxMessageSize <= 0 {
+		cfg.Settings.MaxMessageSize = 10 * 1024 * 1024 // Default 10MB
+	}
+
 	return nil
 }
 
@@ -117,9 +123,9 @@ func startLoop() {
 			return
 		}
 
-		// Cap message size to avoid OOM or malicious input (e.g., 10MB)
-		if length > 10*1024*1024 {
-			log.Printf("❌ Message too large: %d bytes", length)
+		// Cap message size to avoid OOM or malicious input
+		if length > uint32(cfg.Settings.MaxMessageSize) {
+			log.Printf("❌ Message too large: %d bytes (limit: %d)", length, cfg.Settings.MaxMessageSize)
 			// Skip or exit? Exiting is safer for Native Messaging.
 			return
 		}
@@ -309,75 +315,19 @@ func performSnapshot(targetURL string) error {
 	}
 	baseFilename := fmt.Sprintf("%s-%s", timestamp, slug)
 
-	createdFiles := []string{}
-
-	// 3. Save Formats
-	for _, fmtType := range cfg.Settings.SnapshotFormats {
-		path := filepath.Join(saveDir, baseFilename+"."+fmtType)
-		var content []byte
-
-		switch fmtType {
-		case "html":
-			var buf bytes.Buffer
-			if err := article.RenderHTML(&buf); err != nil {
-				log.Printf("   ⚠️ Error rendering HTML: %v", err)
-			}
-
-			// Simple clean HTML wrapper
-			html := fmt.Sprintf(`
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>%s</title>
-<style>body{font-family:sans-serif;max-width:800px;margin:2em auto;line-height:1.6;padding:0 1em;}img{max-width:100%%;height:auto;}</style>
-</head>
-<body>
-<h1>%s</h1>
-%s
-</body>
-</html>`, article.Title(), article.Title(), buf.String())
-			content = []byte(html)
-		case "md":
-			var buf bytes.Buffer
-			if err := article.RenderText(&buf); err != nil {
-				log.Printf("   ⚠️ Error rendering Text: %v", err)
-			}
-			content = []byte(fmt.Sprintf("# %s\n\n%s", article.Title(), buf.String()))
-		}
-
-		if len(content) > 0 {
-			if err := os.WriteFile(path, content, 0644); err != nil {
-				log.Printf("   ❌ Failed to write %s: %v", fmtType, err)
-			} else {
-				log.Printf("   💾 Saved: %s", path)
-				createdFiles = append(createdFiles, path)
-			}
-		}
+	// 3. Save Markdown
+	path := filepath.Join(saveDir, baseFilename+".md")
+	var buf bytes.Buffer
+	if err := article.RenderText(&buf); err != nil {
+		return fmt.Errorf("failed to render text: %w", err)
 	}
 
-	// 4. Open in default target
-	// Spec: "Automatically open the resulting local file in the default_target browser."
-	// Wait, "default_target" isn't a defined key in config, it says "default target browser".
-	// Since we don't have a "default" key, we might need to pick one or look at the 'toggles' logic?
-	// Or maybe the 'target' in the message? But the target was 'snapshot'.
-	// I'll assume we open it in the system default or a specific browser from config.
-	// Looking at config example: No "default" key.
-	// However, if we look at `toggles`, maybe we can infer?
-	// Let's assume the user wants it opened in "chrome" or strictly follow a "default" if it existed.
-	// But it doesn't.
-	// The prompt says: "Automatically open the resulting local file in the `default_target` browser."
-	// Maybe they meant the rule target?
-	// Let's assume we just open it with `xdg-open` (system default) or try to find a browser "chrome".
-	// SAFEST BET: Use `xdg-open` on Linux, which respects system default.
-
-	if len(createdFiles) > 0 {
-		// Open the first one (likely HTML if preferred)
-		fileToOpen := createdFiles[0]
-		cmd := exec.Command("xdg-open", fileToOpen) // Linux specific
-		cmd.Start()
+	content := []byte(fmt.Sprintf("# %s\n\n%s", article.Title(), buf.String()))
+	if err := os.WriteFile(path, content, 0644); err != nil {
+		return fmt.Errorf("failed to write markdown: %w", err)
 	}
 
+	log.Printf("   💾 Saved: %s", path)
 	return nil
 }
 

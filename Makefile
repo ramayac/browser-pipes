@@ -2,7 +2,7 @@ BINARY_NAME=plumber
 MOCKER_NAME=mocker
 BUILD_DIR=bin
 
-.PHONY: all build clean test mock-msg
+.PHONY: all build clean test mock-msg install-config
 
 all: build build-mocks
 
@@ -27,3 +27,13 @@ mock-msg: build build-mocks
 mock-msg-snapshot: build build-mocks
 	@echo "📨 Sending mock snapshot to Plumber..."
 	@$(MAKE) mock-msg MSG='{"url":"https://en.wikipedia.org/wiki/Pipil_people", "target":"snapshot", "timestamp": 1679800000}'
+
+install-config:
+	@echo "📦 Installing default configuration..."
+	@mkdir -p $(HOME)/.config/browser-pipes
+	@if [ ! -f $(HOME)/.config/browser-pipes/plumber.yaml ]; then \
+		cp plumber.example.yaml $(HOME)/.config/browser-pipes/plumber.yaml; \
+		echo "✅ Configuration created at ~/.config/browser-pipes/plumber.yaml"; \
+	else \
+		echo "⚠️ Configuration already exists at ~/.config/browser-pipes/plumber.yaml. Skipping."; \
+	fi

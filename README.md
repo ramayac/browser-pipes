@@ -6,7 +6,7 @@
 
 - **The Toggle**: Instantly switch the current URL from one browser to another (e.g., Chrome -> Firefox) with a single click.
 - **The Cleaner**: Automatically strips tracking parameters like `utm_*`, `fbclid`, and `gclid` before processing.
-- **The Snapshot**: Extracts the main content of a page using `go-readability` and saves it as clean HTML or Markdown for offline reading.
+- **The Snapshot**: Extracts the main content of a page using `go-readability` and saves it as a clean Markdown file for offline reading.
 - **Rule-based Routing**: Define regex rules to automatically route specific domains to specific browsers or actions.
 - **Unix-style Logging**: Monitor all activity in real-time using `tail -f` on the Plumber's stderr logs.
 
@@ -25,6 +25,7 @@
 | `build` | Compiles the `plumber` binary into `bin/`. | `make build` |
 | `build-mocks` | Compiles the `mocker` tool for testing. | `make build-mocks` |
 | `clean` | Removes the `bin/` directory and built binaries. | `make clean` |
+| `install-config` | Creates the config directory and installs the default `plumber.yaml`. | `make install-config` |
 | `mock-msg` | Sends a custom JSON message to the Plumber via the mocker. | `make mock-msg MSG='{"url":"..."}'` |
 | `mock-msg-snapshot` | Sends a pre-defined snapshot request to the Plumber for testing. | `make mock-msg-snapshot` |
 
@@ -38,11 +39,11 @@ make build
 ```
 
 ### 2. Configure the Plumber
-Create a configuration file at `~/.config/browser-pipes/plumber.yaml`. Use [plumber.example.yaml](plumber.example.yaml) as a template:
+Install the default configuration file:
 ```bash
-mkdir -p ~/.config/browser-pipes
-cp plumber.example.yaml ~/.config/browser-pipes/plumber.yaml
+make install-config
 ```
+You can then edit it at `~/.config/browser-pipes/plumber.yaml`.
 
 ### 3. Install Native Messaging Host
 > [!NOTE]
@@ -61,7 +62,7 @@ cp plumber.example.yaml ~/.config/browser-pipes/plumber.yaml
 - [ ] **Installation Script**: Automate the registration of the Plumber as a Native Messaging host across different browsers/OSes.
 - [ ] **Extension Icons**: Design and add `icon.png` (16x16, 48x48, 128x128) to the extension directory.
 - [ ] **Cross-Platform Support**: Validate and improve compatibility for Windows and macOS (currently Linux-focused).
-- [ ] **Markdown Conversion**: Improve "Snapshot" Markdown output (currently uses plain text extraction).
+- [ ] **Markdown Conversion**: improve Markdown output (currently uses plain text extraction).
 - [ ] **Advanced URL Cleaning**: Allow users to define custom tracking parameters to strip via YAML.
 
 ---
