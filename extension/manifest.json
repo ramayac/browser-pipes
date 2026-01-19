@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Browser Pipe Sender",
+  "name": "browser-pipes Sender",
   "version": "1.0",
-  "description": "Sends URLs to the Browser Pipe Plumber.",
+  "description": "Sends URLs to the browser-pipes Plumber.",
   "permissions": [
     "nativeMessaging",
     "contextMenus",
     "activeTab",
-    "scripting" 
+    "scripting"
   ],
   "background": {
     "service_worker": "background.js"

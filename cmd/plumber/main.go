@@ -74,13 +74,13 @@ func main() {
 	startLoop()
 }
 
-// loadConfig loads the YAML configuration from ~/.config/browser-pipe/plumber.yaml
+// loadConfig loads the YAML configuration from ~/.config/browser-pipes/plumber.yaml
 func loadConfig() error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return err
 	}
-	configPath := filepath.Join(homeDir, ".config", "browser-pipe", "plumber.yaml")
+	configPath := filepath.Join(homeDir, ".config", "browser-pipes", "plumber.yaml")
 
 	// Create default config if not exists (optional, but good for first run experience,
 	// though not strictly requested. I will skip creation to strictly follow "Listener" role,
