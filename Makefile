@@ -24,9 +24,9 @@ mock-msg: build build-mocks
 	@echo "📨 Sending mock message to Plumber..."
 	@echo '$(MSG)' | $(BUILD_DIR)/$(MOCKER_NAME) | $(BUILD_DIR)/$(BINARY_NAME)
 
-mock-msg-snapshot: build build-mocks
-	@echo "📨 Sending mock snapshot to Plumber..."
-	@$(MAKE) mock-msg MSG='{"url":"https://en.wikipedia.org/wiki/Pipil_people", "target":"snapshot", "timestamp": 1679800000}'
+mock-msg-markdown: build build-mocks
+	@echo "📨 Sending mock markdown request to Plumber..."
+	@$(MAKE) mock-msg MSG='{"url":"https://en.wikipedia.org/wiki/Pipil_people", "target":"markdown", "timestamp": 1679800000}'
 
 install-config:
 	@echo "📦 Installing default configuration..."
@@ -37,3 +37,27 @@ install-config:
 	else \
 		echo "⚠️ Configuration already exists at ~/.config/browser-pipes/plumber.yaml. Skipping."; \
 	fi
+
+# Usage: make install-host EXTENSION_ID=your_extension_id_from_chrome
+install-host: build
+	@if [ -z "$(EXTENSION_ID)" ]; then \
+		echo "❌ EXTENSION_ID is required (from chrome://extensions). Usage: make install-host EXTENSION_ID=..."; \
+		exit 1; \
+	fi
+	@echo "🔌 Installing Native Messaging Host for ID: $(EXTENSION_ID)..."
+	@# Create the manifest file in the build directory first to avoid shell quoting issues in the loop
+	@printf '{\n  "name": "com.github.browser_pipe",\n  "description": "Browser Pipes Plumber",\n  "path": "%s/%s/%s",\n  "type": "stdio",\n  "allowed_origins": [\n    "chrome-extension://%s/"\n  ]\n}' "$(shell pwd)" "$(BUILD_DIR)" "$(BINARY_NAME)" "$(EXTENSION_ID)" > $(BUILD_DIR)/com.github.browser_pipe.json
+	@for browser in "google-chrome" "chromium" "BraveSoftware/Brave-Browser" "microsoft-edge"; do \
+		if [ -d "$(HOME)/.config/$$browser" ]; then \
+			mkdir -p "$(HOME)/.config/$$browser/NativeMessagingHosts"; \
+			cp $(BUILD_DIR)/com.github.browser_pipe.json "$(HOME)/.config/$$browser/NativeMessagingHosts/com.github.browser_pipe.json"; \
+			echo "✅ Registered for $$browser"; \
+		fi \
+	done
+
+uninstall-host:
+	@echo "🗑️ Removing Native Messaging Host..."
+	@for browser in "google-chrome" "chromium" "BraveSoftware/Brave-Browser" "microsoft-edge"; do \
+		rm -f "$(HOME)/.config/$$browser/NativeMessagingHosts/com.github.browser_pipe.json"; \
+	done
+	@echo "✅ Removed."

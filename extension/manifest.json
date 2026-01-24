@@ -7,13 +7,14 @@
     "nativeMessaging",
     "contextMenus",
     "activeTab",
-    "scripting"
+    "scripting",
+    "notifications"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Toggle Browser"
+    "default_title": "Send to Browser Pipe"
   },
   "icons": {
     "16": "icon.png",

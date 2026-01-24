@@ -11,6 +11,15 @@ function connect() {
 
   port.onMessage.addListener((response) => {
     console.log("Received from Plumber:", response);
+
+    if (chrome.notifications) {
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icon.png',
+        title: response.status === 'success' ? 'Browser Pipe' : 'Error',
+        message: response.message
+      });
+    }
   });
 
   port.onDisconnect.addListener(() => {
@@ -33,7 +42,7 @@ function sendEnvelope(target, url, origin) {
   };
 
   console.log("Sending envelope:", envelope);
-  
+
   try {
     port.postMessage(envelope);
   } catch (e) {
@@ -44,8 +53,8 @@ function sendEnvelope(target, url, origin) {
 // 1. Context Menus
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
-    id: "send-to-chrome",
-    title: "Send to Chrome",
+    id: "send-to-pipe",
+    title: "Send to Browser Pipe",
     contexts: ["link", "page"]
   });
   chrome.contextMenus.create({
@@ -59,8 +68,8 @@ chrome.runtime.onInstalled.addListener(() => {
     contexts: ["link", "page"]
   });
   chrome.contextMenus.create({
-    id: "snapshot",
-    title: "📸 Snapshot Page",
+    id: "save-markdown",
+    title: "� Save as Markdown",
     contexts: ["link", "page"]
   });
 });
@@ -70,8 +79,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   let target = "";
 
   switch (info.menuItemId) {
-    case "send-to-chrome":
-      target = "chrome";
+    case "send-to-pipe":
+      target = ""; // Let the pipe decide
       break;
     case "send-to-firefox":
       target = "firefox";
@@ -79,8 +88,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     case "send-to-brave":
       target = "brave";
       break;
-    case "snapshot":
-      target = "snapshot";
+    case "save-markdown":
+      target = "markdown";
       break;
   }
 

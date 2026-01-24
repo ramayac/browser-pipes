@@ -2,8 +2,8 @@
 # Copy this file to ~/.config/browser-pipe/plumber.yaml
 
 settings:
-  # Folder to save snapshots. Supports leading "~" for user home.
-  snapshot_folder: "~/ReadingRoom"
+  # Folder to save markdown files. Supports leading "~" for user home.
+  markdown_folder: "~/ReadingRoom"
   
   # Max allowed size for incoming Native Messaging messages in bytes.
   # Defaults to 10485760 (10MB) if not set.
@@ -36,9 +36,9 @@ rules:
   - match: ".*confluence.*|.*jira.*"
     target: "chrome"
     
-  # Example: Automatically snapshot reading sites
+  # Example: Automatically save markdown for reading sites
   - match: "medium.com|substack.com"
-    target: "snapshot"
+    target: "markdown"
     
   # Example: YouTube always in Firefox
   - match: "youtube.com|youtu.be"

@@ -31,7 +31,7 @@ type Config struct {
 }
 
 type Settings struct {
-	SnapshotFolder string `yaml:"snapshot_folder"`
+	MarkdownFolder string `yaml:"markdown_folder"`
 	MaxMessageSize int    `yaml:"max_message_size"`
 }
 
@@ -81,6 +81,7 @@ func loadConfig() error {
 		return err
 	}
 	configPath := filepath.Join(homeDir, ".config", "browser-pipes", "plumber.yaml")
+	log.Printf("📂 Loading config from: %s", configPath)
 
 	// Create default config if not exists (optional, but good for first run experience,
 	// though not strictly requested. I will skip creation to strictly follow "Listener" role,
@@ -191,9 +192,12 @@ func handleMessage(env Envelope) {
 	}
 
 	// Execution
-	if target == "snapshot" {
-		if err := performSnapshot(env.URL); err != nil {
-			log.Printf("   ❌ Snapshot failed: %v", err)
+	if target == "markdown" {
+		if err := performMarkdown(env.URL); err != nil {
+			log.Printf("   ❌ Markdown save failed: %v", err)
+			sendResponse("error", fmt.Sprintf("Markdown save failed: %v", err))
+		} else {
+			sendResponse("success", "Page saved as Markdown")
 		}
 	} else if action, ok := cfg.Actions[target]; ok {
 		// Custom Action Execution
@@ -264,8 +268,8 @@ func cleanURL(rawURL string) string {
 	return u.String()
 }
 
-func performSnapshot(targetURL string) error {
-	log.Printf("   📸 Snapshotting: %s", targetURL)
+func performMarkdown(targetURL string) error {
+	log.Printf("   📝 Saving Markdown: %s", targetURL)
 
 	// 1. Fetch and Readability
 	// Custom HTTP Client to set User-Agent (Wikipedia and others block empty/Go-http-client)
@@ -296,14 +300,19 @@ func performSnapshot(targetURL string) error {
 
 	// 2. Prepare Output Path
 	// Resolve ~ in path
-	saveDir := cfg.Settings.SnapshotFolder
+	rawDir := cfg.Settings.MarkdownFolder
+	saveDir := rawDir
 	if strings.HasPrefix(saveDir, "~/") {
 		home, _ := os.UserHomeDir()
 		saveDir = filepath.Join(home, saveDir[2:])
 	}
 
+	if saveDir == "" {
+		return fmt.Errorf("markdown_folder is empty in config (Home: %s)", func() string { h, _ := os.UserHomeDir(); return h }())
+	}
+
 	if err := os.MkdirAll(saveDir, 0755); err != nil {
-		return fmt.Errorf("failed to create snapshot dir: %w", err)
+		return fmt.Errorf("failed to create markdown dir '%s' (raw: '%s'): %w", saveDir, rawDir, err)
 	}
 
 	timestamp := time.Now().Format("2006-01-02-1504")
@@ -343,15 +352,48 @@ func launchBrowser(browserAlias, targetURL string) {
 	// Prepare command
 	cmd := exec.Command(cmdName, targetURL)
 
-	// Detach process so it doesn't die when plumber dies (if Plumber is short lived, but Plumber is a listener here)
-	// However, browsers usually fork anyway.
 	if err := cmd.Start(); err != nil {
 		log.Printf("   ❌ Failed to launch browser: %v", err)
+		sendResponse("error", fmt.Sprintf("Failed to launch %s: %v", browserAlias, err))
+		return
 	}
+
+	sendResponse("success", fmt.Sprintf("Opened in %s", browserAlias))
 }
 
 func sanitizeFilename(name string) string {
 	// Simple sanitize
 	reg, _ := regexp.Compile("[^a-zA-Z0-9]+")
 	return strings.ToLower(strings.Trim(reg.ReplaceAllString(name, "-"), "-"))
+}
+
+// --- Response Handling ---
+
+type Response struct {
+	Status  string `json:"status"` // "success" or "error"
+	Message string `json:"message"`
+}
+
+func sendResponse(status, message string) {
+	resp := Response{
+		Status:  status,
+		Message: message,
+	}
+
+	bytes, err := json.Marshal(resp)
+	if err != nil {
+		log.Printf("❌ Failed to marshal response: %v", err)
+		return
+	}
+
+	// Native Messaging requires length prefix (uint32 little endian)
+	if err := binary.Write(os.Stdout, binary.LittleEndian, uint32(len(bytes))); err != nil {
+		log.Printf("❌ Failed to write response length: %v", err)
+		return
+	}
+
+	if _, err := os.Stdout.Write(bytes); err != nil {
+		log.Printf("❌ Failed to write response body: %v", err)
+		return
+	}
 }
