@@ -21,14 +21,17 @@
 
 | Target | Description | Usage |
 | :--- | :--- | :--- |
-| `all` | Builds both the `plumber` and the `mocker` tools. | `make all` |
+| `all` | Builds plumber, mocker, and all tools. | `make all` |
 | `build` | Compiles the `plumber` binary into `bin/`. | `make build` |
 | `build-mocks` | Compiles the `mocker` tool for testing. | `make build-mocks` |
+| `build-tools` | Compiles helper tools (`go-read-md`). | `make build-tools` |
 | `clean` | Removes the `bin/` directory and built binaries. | `make clean` |
-| `install-config` | Creates the config directory and installs the default `plumber.yaml`. | `make install-config` |
-| `mock-msg` | Sends a custom JSON message to the Plumber via the mocker. | `make mock-msg MSG='{"url":"..."}'` |
-| `mock-msg-snapshot` | Sends a pre-defined snapshot request to the Plumber for testing. | `make mock-msg-snapshot` |
-| `test-config-v2` | Runs the Plumber with the V2 example configuration for verification. | `make test-config-v2` |
+| `validate-config` | Validates the plumber configuration file. | `make validate-config [CONFIG=path]` |
+| `test-config` | Tests plumber with mock native messaging input. | `make test-config [MSG=...] [CONFIG=...]` |
+| `test-read-md` | Tests the markdown extraction tool. | `make test-read-md [URL=...] [OUTPUT=...]` |
+| `install-config` | Creates config directory and installs default `plumber.yaml`. | `make install-config` |
+| `install-host` | Registers plumber as a native messaging host. | `make install-host EXTENSION_ID=...` |
+| `uninstall-host` | Removes native messaging host registration. | `make uninstall-host` |
 
 ---
 
@@ -56,19 +59,42 @@ The new configuration system (Version 2) is inspired by CircleCI, allowing for r
 version: 2
 
 commands:
-  open_specific:
+  open_browser:
     parameters:
       browser:
         type: string
         default: "google-chrome"
     steps:
-      - run: "<<parameters.browser>> {url}"
+      - run: "<<parameters.browser>> '{url}'"
+
+  save_markdown:
+    parameters:
+      output_dir:
+        type: string
+        default: "~/Documents/ReadLater"
+    steps:
+      - run: "go-read-md --output <<parameters.output_dir>> '{url}'"
 
 jobs:
-  work_browsing:
+  default_firefox:
     steps:
-      - open_specific:
+      - open_browser:
           browser: "firefox"
+
+  read_markdown:
+    steps:
+      - save_markdown
+
+workflows:
+  smart_routing:
+    jobs:
+      - read_markdown:
+          match: "(?i)(medium\\.com)"
+      - default_firefox:
+          match: ".*"
+```
+
+See [plumber.example.yaml](./plumber.example.yaml) for a complete working example.
 
 ### 4. CLI Tooling
 
@@ -104,6 +130,12 @@ plumber schema > plumber.schema.json
 - [ ] **Extension Icons**: Design and add `icon.png` (16x16, 48x48, 128x128) to the extension directory.
 - [ ] **Cross-Platform Support**: Validate and improve compatibility for Windows and macOS (currently Linux-focused).
 - [ ] **Advanced URL Cleaning**: Allow users to define custom tracking parameters to strip via YAML?
+
+---
+
+## 🤖 Contributing
+
+For AI agents and developers: See [AGENT.md](./AGENT.md) for development guidelines and workflow.
 
 ---
 

@@ -2,9 +2,9 @@ BINARY_NAME=plumber
 MOCKER_NAME=mocker
 BUILD_DIR=bin
 
-.PHONY: all build clean test mock-msg install-config
+.PHONY: all build clean test mock-msg install-config test-read-md
 
-all: build build-mocks
+all: build build-mocks build-tools
 
 build:
 	@echo "🔧 Building Plumber..."
@@ -14,6 +14,10 @@ build:
 build-mocks:
 	@echo "🔧 Building Mocker..."
 	go build -o $(BUILD_DIR)/$(MOCKER_NAME) tools/mocker/main.go
+
+build-tools:
+	@echo "🔧 Building go-read-md..."
+	go build -o $(BUILD_DIR)/go-read-md ./cmd/go-read-md
 
 clean:
 	@echo "🧹 Cleaning..."
@@ -41,6 +45,22 @@ test-config: build build-mocks
 		msg='{"url":"https://nifmuhammad.medium.com/115-favorite-albums-of-2025-this-time-with-a-short-essay-about-brian-wilson-e12b04ee9e45","target":"","timestamp":1679800000}'; \
 	fi; \
 	echo "$$msg" | $(BUILD_DIR)/$(MOCKER_NAME) | $(BUILD_DIR)/$(BINARY_NAME) -config $(or $(CONFIG),plumber.example.yaml) run
+
+# Usage: make test-read-md [URL=https://example.com] [OUTPUT=/tmp/test-articles]
+test-read-md: build-tools
+	@echo "📝 Testing go-read-md..."
+	@url='$(URL)'; \
+	if [ -z "$$url" ]; then \
+		url='https://example.com'; \
+	fi; \
+	output='$(OUTPUT)'; \
+	if [ -z "$$output" ]; then \
+		output='/tmp/browser-pipes-test'; \
+	fi; \
+	echo "   URL: $$url"; \
+	echo "   Output: $$output"; \
+	$(BUILD_DIR)/go-read-md --output "$$output" --verbose "$$url"
+	@echo "✅ Test complete. Check the output directory for results."
 
 
 install-config:

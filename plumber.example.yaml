@@ -8,33 +8,48 @@ commands:
         default: "google-chrome"
     steps:
       - run: "echo '🚀 Launching <<parameters.browser>> for {url}'"
+      # Real implementation would be:
+      # - run: "gtk-launch <<parameters.browser>> '{url}'"
+
+  open_zen_flatpak:
+    steps:
+      - run: "echo '🚀 Launching Zen via Flatpak for {url}'"
+      # Real implementation:
+      - run: "flatpak run io.github.zen_browser.zen --new-tab '{url}'"
 
   save_markdown:
+    parameters:
+      output_dir:
+        type: string
+        default: "~/Documents/ReadLater"
     steps:
-      - run: "echo '📝 Mock saving markdown for {url}'"
+      - run: "go-read-md --output <<parameters.output_dir>> '{url}'"
 
 jobs:
-  default_job:
+  default_firefox:
     steps:
       - open_browser:
           browser: "firefox"
 
-  work_job:
+  social_zen:
     steps:
-      - run: "echo '💼 Work Mode Active'"
-      - open_browser:
-          browser: "chromium"
+      - open_zen_flatpak
 
-  reading_job:
+  read_markdown:
     steps:
       - save_markdown
 
 workflows:
-  main_pipeline:
+  smart_routing:
     jobs:
-      - work_job:
-          match: ".*jira.*"
-      - reading_job:
-          match: "medium.com"
-      - default_job:
+      # 1. URL to Markdown (Reading list)
+      - read_markdown:
+          match: "(?i)(medium\\.com|generic-blog\\.com)"
+
+      # 2. Chrome to Zen (Video/Social)
+      - social_zen:
+          match: "(?i)(youtube\\.com|twitch\\.tv)"
+
+      # 3. Default: Chrome to Firefox
+      - default_firefox:
           match: ".*"

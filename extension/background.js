@@ -57,48 +57,13 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Send to Browser Pipe",
     contexts: ["link", "page"]
   });
-  chrome.contextMenus.create({
-    id: "send-to-firefox",
-    title: "Send to Firefox",
-    contexts: ["link", "page"]
-  });
-  chrome.contextMenus.create({
-    id: "send-to-brave",
-    title: "Send to Brave",
-    contexts: ["link", "page"]
-  });
-  chrome.contextMenus.create({
-    id: "save-markdown",
-    title: "� Save as Markdown",
-    contexts: ["link", "page"]
-  });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   const url = info.linkUrl || info.pageUrl;
-  let target = "";
-
-  switch (info.menuItemId) {
-    case "send-to-pipe":
-      target = ""; // Let the pipe decide
-      break;
-    case "send-to-firefox":
-      target = "firefox";
-      break;
-    case "send-to-brave":
-      target = "brave";
-      break;
-    case "save-markdown":
-      target = "markdown";
-      break;
-  }
-
-  if (target) {
-    sendEnvelope(target, url, "chrome"); // TODO: Detect browser if possible, or build-time config
-  }
+  // Send with empty target to let Plumber routing decide
+  sendEnvelope("", url, "chrome");
 });
-
-// 2. Browser Action (The Toggle)
 chrome.action.onClicked.addListener((tab) => {
   if (tab.url && !tab.url.startsWith("chrome://")) {
     sendEnvelope("toggle", tab.url, "chrome");
