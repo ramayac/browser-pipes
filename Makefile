@@ -38,7 +38,7 @@ test-config: build build-mocks
 	@echo "📨 Sending mock message..."
 	@msg='$(MSG)'; \
 	if [ -z "$$msg" ]; then \
-		msg='{"url":"https://medium.com/story","target":"","timestamp":1679800000}'; \
+		msg='{"url":"https://nifmuhammad.medium.com/115-favorite-albums-of-2025-this-time-with-a-short-essay-about-brian-wilson-e12b04ee9e45","target":"","timestamp":1679800000}'; \
 	fi; \
 	echo "$$msg" | $(BUILD_DIR)/$(MOCKER_NAME) | $(BUILD_DIR)/$(BINARY_NAME) -config $(or $(CONFIG),plumber.example.yaml) run
 
