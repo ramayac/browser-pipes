@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -59,6 +60,10 @@ type Envelope struct {
 var cfg Config
 
 func main() {
+	// 0. Parse Flags
+	configPath := flag.String("config", "", "Path to configuration file")
+	flag.Parse()
+
 	// 1. Setup Logging (Stderr)
 	log.SetOutput(os.Stderr)
 	log.SetFlags(0) // Custom format
@@ -66,7 +71,7 @@ func main() {
 	log.Println("🔧 Plumber started...")
 
 	// 2. Load Configuration
-	if err := loadConfig(); err != nil {
+	if err := loadConfig(*configPath); err != nil {
 		log.Fatalf("❌ Failed to load config: %v", err)
 	}
 
@@ -74,13 +79,19 @@ func main() {
 	startLoop()
 }
 
-// loadConfig loads the YAML configuration from ~/.config/browser-pipes/plumber.yaml
-func loadConfig() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return err
+// loadConfig loads the YAML configuration
+func loadConfig(explicitPath string) error {
+	var configPath string
+	if explicitPath != "" {
+		configPath = explicitPath
+	} else {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		configPath = filepath.Join(homeDir, ".config", "browser-pipes", "plumber.yaml")
 	}
-	configPath := filepath.Join(homeDir, ".config", "browser-pipes", "plumber.yaml")
+
 	log.Printf("📂 Loading config from: %s", configPath)
 
 	// Create default config if not exists (optional, but good for first run experience,

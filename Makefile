@@ -24,9 +24,21 @@ mock-msg: build build-mocks
 	@echo "📨 Sending mock message to Plumber..."
 	@echo '$(MSG)' | $(BUILD_DIR)/$(MOCKER_NAME) | $(BUILD_DIR)/$(BINARY_NAME)
 
-mock-msg-markdown: build build-mocks
 	@echo "📨 Sending mock markdown request to Plumber..."
 	@$(MAKE) mock-msg MSG='{"url":"https://en.wikipedia.org/wiki/Pipil_people", "target":"markdown", "timestamp": 1679800000}'
+
+# Usage: make test-config MSG='{"url":"https://example.com"}' CONFIG=plumber.example.yaml
+test-config: build build-mocks
+	@echo "🧪 Testing with config: $(or $(CONFIG),plumber.example.yaml)"
+	@echo "📨 Sending mock message..."
+	@msg='$(MSG)'; \
+	if [ -z "$$msg" ]; then \
+		msg='{"url":"https://example.com","target":"markdown","timestamp":1679800000}'; \
+	fi; \
+	echo "$$msg" | $(BUILD_DIR)/$(MOCKER_NAME) | $(BUILD_DIR)/$(BINARY_NAME) -config $(or $(CONFIG),plumber.example.yaml)
+
+test-example-config: build build-mocks
+	@$(MAKE) test-config CONFIG=./plumber.example.yaml
 
 install-config:
 	@echo "📦 Installing default configuration..."
