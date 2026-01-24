@@ -28,6 +28,7 @@
 | `install-config` | Creates the config directory and installs the default `plumber.yaml`. | `make install-config` |
 | `mock-msg` | Sends a custom JSON message to the Plumber via the mocker. | `make mock-msg MSG='{"url":"..."}'` |
 | `mock-msg-snapshot` | Sends a pre-defined snapshot request to the Plumber for testing. | `make mock-msg-snapshot` |
+| `test-config-v2` | Runs the Plumber with the V2 example configuration for verification. | `make test-config-v2` |
 
 ---
 
@@ -44,6 +45,44 @@ Install the default configuration file:
 make install-config
 ```
 You can then edit it at `~/.config/browser-pipes/plumber.yaml`.
+
+### 3. Configuration V2 (New)
+
+The new configuration system (Version 2) is inspired by CircleCI, allowing for reusable commands, composed jobs, and regex-based workflow routing.
+
+#### Example `plumber.yaml` (v2)
+
+```yaml
+version: 2
+
+commands:
+  open_specific:
+    parameters:
+      browser:
+        type: string
+        default: "google-chrome"
+    steps:
+      - run: "<<parameters.browser>> {url}"
+
+jobs:
+  work_browsing:
+    steps:
+      - open_specific:
+          browser: "firefox"
+
+### 4. CLI Tooling
+
+The `plumber` binary now supports subcommands:
+
+- `plumber run`: Starts the Native Messaging listener (default).
+- `plumber validate`: Validates the configuration file.
+- `plumber schema`: Outputs the JSON Schema for the V2 configuration (useful for IDE autocompletion).
+
+**Example: Generating Documentation**
+```bash
+plumber schema > plumber.schema.json
+```
+
 
 ### 3. Install Native Messaging Host
 > [!NOTE]

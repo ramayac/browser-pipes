@@ -9,7 +9,7 @@ all: build build-mocks
 build:
 	@echo "🔧 Building Plumber..."
 	@mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(BINARY_NAME) cmd/plumber/main.go cmd/plumber/utils.go
+	go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/plumber
 
 build-mocks:
 	@echo "🔧 Building Mocker..."
@@ -27,18 +27,21 @@ mock-msg: build build-mocks
 	@echo "📨 Sending mock markdown request to Plumber..."
 	@$(MAKE) mock-msg MSG='{"url":"https://en.wikipedia.org/wiki/Pipil_people", "target":"markdown", "timestamp": 1679800000}'
 
+# Usage: make validate-config CONFIG=...
+validate-config: build
+	@echo "🔍 Validating config: $(or $(CONFIG),plumber.example.yaml)"
+	@$(BUILD_DIR)/$(BINARY_NAME) -config $(or $(CONFIG),plumber.example.yaml) validate
+
 # Usage: make test-config MSG='{"url":"https://example.com"}' CONFIG=plumber.example.yaml
 test-config: build build-mocks
 	@echo "🧪 Testing with config: $(or $(CONFIG),plumber.example.yaml)"
 	@echo "📨 Sending mock message..."
 	@msg='$(MSG)'; \
 	if [ -z "$$msg" ]; then \
-		msg='{"url":"https://example.com","target":"markdown","timestamp":1679800000}'; \
+		msg='{"url":"https://medium.com/story","target":"","timestamp":1679800000}'; \
 	fi; \
-	echo "$$msg" | $(BUILD_DIR)/$(MOCKER_NAME) | $(BUILD_DIR)/$(BINARY_NAME) -config $(or $(CONFIG),plumber.example.yaml)
+	echo "$$msg" | $(BUILD_DIR)/$(MOCKER_NAME) | $(BUILD_DIR)/$(BINARY_NAME) -config $(or $(CONFIG),plumber.example.yaml) run
 
-test-example-config: build build-mocks
-	@$(MAKE) test-config CONFIG=./plumber.example.yaml
 
 install-config:
 	@echo "📦 Installing default configuration..."

@@ -1,57 +1,40 @@
-# Plumber Configuration Example
-# Copy this file to ~/.config/browser-pipe/plumber.yaml
+version: 2
 
-settings:
-  # Folder to save markdown files. Supports leading "~" for user home.
-  markdown_folder: "~/ReadingRoom"
-  
-  # Max allowed size for incoming Native Messaging messages in bytes.
-  # Defaults to 10485760 (10MB) if not set.
-  max_message_size: 10485760 
+commands:
+  open_browser:
+    parameters:
+      browser:
+        type: string
+        default: "google-chrome"
+    steps:
+      - run: "echo '🚀 Launching <<parameters.browser>> for {url}'"
 
-browsers:
-  # Aliases mapped to system commands.
-  # Ensure these executables are in your $PATH or use absolute paths.
-  chrome: "google-chrome"
-  firefox: "firefox"
-  brave: "brave-browser"
-  edge: "microsoft-edge-stable"
-  
-  # You can define custom browsers or scripts here
-  # safari: "open -a Safari" # macOS example
+  save_markdown:
+    steps:
+      - run: "echo '📝 Mock saving markdown for {url}'"
 
-toggles:
-  # The "Toggle" feature defines what happens when you click the extension icon.
-  # Format: "origin_browser": "target_browser"
-  chrome: "firefox"
-  firefox: "chrome"
-  brave: "chrome"
-  edge: "chrome"
+jobs:
+  default_job:
+    steps:
+      - open_browser:
+          browser: "firefox"
 
-rules:
-  # Regex-based routing rules.
-  # Evaluated in order. First match wins.
-  
-  # Example: Always open work-related sites in Chrome
-  - match: ".*confluence.*|.*jira.*"
-    target: "chrome"
-    
-  # Example: Automatically save markdown for reading sites
-  - match: "medium.com|substack.com"
-    target: "markdown"
-    
-  # Example: YouTube always in Firefox
-  - match: "youtube.com|youtu.be"
-    target: "firefox"
+  work_job:
+    steps:
+      - run: "echo '💼 Work Mode Active'"
+      - open_browser:
+          browser: "chromium"
 
-actions:
-  # Example: Download audio from YouTube
-  download_music:
-    cmd: "yt-dlp"
-    args: 
-      - "-x"
-      - "--audio-format"
-      - "mp3"
-      - "-P"
-      - "~/Music"
-      - "{url}"
+  reading_job:
+    steps:
+      - save_markdown
+
+workflows:
+  main_pipeline:
+    jobs:
+      - work_job:
+          match: ".*jira.*"
+      - reading_job:
+          match: "medium.com"
+      - default_job:
+          match: ".*"
