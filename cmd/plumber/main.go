@@ -23,6 +23,7 @@ type Envelope struct {
 	URL       string `json:"url"`
 	Target    string `json:"target"`
 	Timestamp int64  `json:"timestamp"`
+	HTML      string `json:"html,omitempty"` // Optional HTML content for paywalled articles
 }
 
 // --- Global Config ---
@@ -169,7 +170,7 @@ func handleMessage(env Envelope) {
 	}
 	env.URL = cleanedURL
 
-	if err := ExecuteWorkflowV2(&cfg, env.URL); err != nil {
+	if err := ExecuteWorkflowV2(&cfg, env.URL, env.HTML); err != nil {
 		log.Printf("   ❌ Workflow Execution Failed: %v", err)
 		sendResponse("error", fmt.Sprintf("Workflow failed: %v", err))
 	} else {

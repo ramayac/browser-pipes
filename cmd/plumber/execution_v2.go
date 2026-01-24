@@ -9,7 +9,7 @@ import (
 )
 
 // ExecuteWorkflowV2 finds the matching job in the workflow and executes it.
-func ExecuteWorkflowV2(cfg *Config, url string) error {
+func ExecuteWorkflowV2(cfg *Config, url string, html string) error {
 	// 1. Iterate over workflows (Currently assuming single active workflow or checking all)
 	// CircleCI usually runs all workflows that match triggers.
 	// For Plumber, we likely want the first match or all matches?
@@ -58,7 +58,7 @@ func ExecuteWorkflowV2(cfg *Config, url string) error {
 				}
 
 				// Execute Job
-				if err := executeJob(cfg, jobDef, jobRef.Params, url); err != nil {
+				if err := executeJob(cfg, jobDef, jobRef.Params, url, html); err != nil {
 					log.Printf("   ❌ Job matched but failed: %v", err)
 					// Verify Next? Or stop?
 					// CircleCI stops on failure usually.
@@ -82,16 +82,16 @@ func ExecuteWorkflowV2(cfg *Config, url string) error {
 	return nil
 }
 
-func executeJob(cfg *Config, job Job, params map[string]string, url string) error {
+func executeJob(cfg *Config, job Job, params map[string]string, url string, html string) error {
 	for _, step := range job.Steps {
-		if err := executeStep(cfg, step, params, url); err != nil {
+		if err := executeStep(cfg, step, params, url, html); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func executeCommand(cfg *Config, cmdName string, cmdDef Command, callParams map[string]string, url string) error {
+func executeCommand(cfg *Config, cmdName string, cmdDef Command, callParams map[string]string, url string, html string) error {
 	// 1. Resolve Parameters
 	// Merge callParams with defaults
 	finalParams := make(map[string]string)
@@ -108,14 +108,14 @@ func executeCommand(cfg *Config, cmdName string, cmdDef Command, callParams map[
 
 	// 2. Execute Steps
 	for _, step := range cmdDef.Steps {
-		if err := executeStep(cfg, step, finalParams, url); err != nil {
+		if err := executeStep(cfg, step, finalParams, url, html); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func executeStep(cfg *Config, step Step, scopeParams map[string]string, url string) error {
+func executeStep(cfg *Config, step Step, scopeParams map[string]string, url string, html string) error {
 	// Case 1: "run" command
 	if step.Name == "run" {
 		// The script is in step.Args
@@ -126,6 +126,22 @@ func executeStep(cfg *Config, step Step, scopeParams map[string]string, url stri
 		script = resolveParams(script, scopeParams)
 		// 2. Resolve {url} (legacy/convenience)
 		script = strings.ReplaceAll(script, "{url}", url)
+		// 3. Resolve {html} - write to temp file if HTML is present
+		if html != "" && strings.Contains(script, "{html}") {
+			tmpFile, err := os.CreateTemp("", "browser-pipe-*.html")
+			if err != nil {
+				return fmt.Errorf("failed to create temp file for HTML: %w", err)
+			}
+			defer os.Remove(tmpFile.Name())
+
+			if _, err := tmpFile.WriteString(html); err != nil {
+				tmpFile.Close()
+				return fmt.Errorf("failed to write HTML to temp file: %w", err)
+			}
+			tmpFile.Close()
+
+			script = strings.ReplaceAll(script, "{html}", tmpFile.Name())
+		}
 
 		// Execute
 		log.Printf("   🏃 Running: %s", script)
@@ -152,7 +168,7 @@ func executeStep(cfg *Config, step Step, scopeParams map[string]string, url stri
 			resolvedCallParams[k] = resolveParams(v, scopeParams)
 		}
 
-		return executeCommand(cfg, step.Name, cmdDef, resolvedCallParams, url)
+		return executeCommand(cfg, step.Name, cmdDef, resolvedCallParams, url, html)
 	}
 
 	return fmt.Errorf("unknown command or step: %s", step.Name)

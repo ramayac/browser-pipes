@@ -28,7 +28,7 @@ function connect() {
   });
 }
 
-function sendEnvelope(target, url, origin) {
+function sendEnvelope(target, url, origin, html) {
   if (!port) {
     connect();
   }
@@ -41,12 +41,35 @@ function sendEnvelope(target, url, origin) {
     timestamp: Math.floor(Date.now() / 1000)
   };
 
+  // Add HTML content if provided
+  if (html) {
+    envelope.html = html;
+  }
+
   console.log("Sending envelope:", envelope);
 
   try {
     port.postMessage(envelope);
   } catch (e) {
     console.error("Failed to send message:", e);
+  }
+}
+
+// Extract HTML content from the active tab
+async function extractPageHTML(tabId) {
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      func: () => document.documentElement.outerHTML
+    });
+
+    if (results && results[0] && results[0].result) {
+      return results[0].result;
+    }
+    return null;
+  } catch (e) {
+    console.error("Failed to extract HTML:", e);
+    return null;
   }
 }
 
@@ -57,12 +80,30 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Send to Browser Pipe",
     contexts: ["link", "page"]
   });
+
+  chrome.contextMenus.create({
+    id: "send-html",
+    title: "Send HTML",
+    contexts: ["page"]
+  });
 });
 
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  const url = info.linkUrl || info.pageUrl;
-  // Send with empty target to let Plumber routing decide
-  sendEnvelope("", url, "chrome");
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === "send-to-pipe") {
+    const url = info.linkUrl || info.pageUrl;
+    // Send with empty target to let Plumber routing decide
+    sendEnvelope("", url, "chrome");
+  } else if (info.menuItemId === "send-html") {
+    const url = info.pageUrl;
+    const html = await extractPageHTML(tab.id);
+
+    if (html) {
+      // Send with HTML content
+      sendEnvelope("", url, "chrome", html);
+    } else {
+      console.error("Failed to extract HTML content");
+    }
+  }
 });
 chrome.action.onClicked.addListener((tab) => {
   if (tab.url && !tab.url.startsWith("chrome://")) {
