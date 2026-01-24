@@ -78,6 +78,8 @@ The `plumber` binary now supports subcommands:
 - `plumber validate`: Validates the configuration file.
 - `plumber schema`: Outputs the JSON Schema for the V2 configuration (useful for IDE autocompletion).
 
+**Configuration Schema**: [plumber.schema.json](./plumber.schema.json) (Auto-generated)
+
 **Example: Generating Documentation**
 ```bash
 plumber schema > plumber.schema.json
@@ -101,8 +103,7 @@ plumber schema > plumber.schema.json
 - [ ] **Installation Script**: Automate the registration of the Plumber as a Native Messaging host across different browsers/OSes.
 - [ ] **Extension Icons**: Design and add `icon.png` (16x16, 48x48, 128x128) to the extension directory.
 - [ ] **Cross-Platform Support**: Validate and improve compatibility for Windows and macOS (currently Linux-focused).
-- [ ] **Markdown Conversion**: improve Markdown output (currently uses plain text extraction).
-- [ ] **Advanced URL Cleaning**: Allow users to define custom tracking parameters to strip via YAML.
+- [ ] **Advanced URL Cleaning**: Allow users to define custom tracking parameters to strip via YAML?
 
 ---
 

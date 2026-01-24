@@ -1,0 +1,36 @@
+name: Update JSON Schema
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'cmd/plumber/**'
+      - 'go.mod'
+      - 'go.sum'
+
+permissions:
+  contents: write
+
+jobs:
+  update-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Build Plumber
+        run: go build -o bin/plumber ./cmd/plumber
+
+      - name: Generate Schema
+        run: bin/plumber schema > plumber.schema.json
+
+      - name: Commit and Push Schema
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs: update plumber.schema.json [skip ci]"
+          file_pattern: plumber.schema.json

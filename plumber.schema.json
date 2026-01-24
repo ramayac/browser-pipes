@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Command": {
+      "properties": {
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Parameter"
+          },
+          "type": "object"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "steps"
+      ]
+    },
+    "Job": {
+      "properties": {
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "steps"
+      ]
+    },
+    "Parameter": {
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "string"
+          ]
+        },
+        "default": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "type",
+        "default"
+      ]
+    },
+    "Step": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Command name (e.g. 'checkout')"
+        },
+        {
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "For 'run' command, the script to execute"
+              },
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object",
+                "description": "Parameters for the command"
+              }
+            ]
+          },
+          "type": "object",
+          "maxProperties": 1,
+          "minProperties": 1,
+          "description": "Command with parameters (e.g. 'run: ...' or 'my_command: ...')"
+        }
+      ]
+    },
+    "Workflow": {
+      "properties": {
+        "jobs": {
+          "items": {
+            "$ref": "#/$defs/WorkflowJob"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "jobs"
+      ]
+    },
+    "WorkflowJob": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Job name reference"
+        },
+        {
+          "properties": {
+            "match": {
+              "type": "string",
+              "format": "regex",
+              "description": "Regex pattern to match URLs"
+            }
+          },
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Job reference with configuration"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": [
+        "2"
+      ],
+      "description": "Configuration version must be '2'"
+    },
+    "commands": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Command"
+      },
+      "type": "object",
+      "description": "Reusable command definitions"
+    },
+    "jobs": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Job"
+      },
+      "type": "object",
+      "description": "Job definitions"
+    },
+    "workflows": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Workflow"
+      },
+      "type": "object",
+      "description": "Workflow definitions mapping jobs to URL patterns"
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "version",
+    "commands",
+    "jobs",
+    "workflows"
+  ]
+}
