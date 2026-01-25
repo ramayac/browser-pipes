@@ -28,9 +28,15 @@ clean:
 # Usage: make mock-msg MSG='{"url":"https://example.com"}'
 mock-msg: build build-mocks
 	@echo "📨 Sending mock message to Plumber..."
-	@echo '$(MSG)' | $(BUILD_DIR)/$(MOCKER_NAME) | $(BUILD_DIR)/$(BINARY_NAME)
+	@msg='$(MSG)'; \
+	if [ -z "$$msg" ]; then \
+		msg='{"url":"https://example.com","target":"","timestamp":1679800000}'; \
+	fi; \
+	echo "$$msg" | $(BUILD_DIR)/$(MOCKER_NAME) | $(BUILD_DIR)/$(BINARY_NAME)
 
-	@echo "📨 Sending mock markdown request to Plumber..."
+# Demonstrate functionality with a preset example
+demo: build build-mocks
+	@echo "🚀 Running demo with Wikipedia example..."
 	@$(MAKE) mock-msg MSG='{"url":"https://en.wikipedia.org/wiki/Pipil_people", "target":"markdown", "timestamp": 1679800000}'
 
 # Usage: make validate-config CONFIG=...

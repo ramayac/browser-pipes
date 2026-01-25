@@ -118,8 +118,18 @@ func executeCommand(cfg *Config, cmdName string, cmdDef Command, callParams map[
 func executeStep(cfg *Config, step Step, scopeParams map[string]string, url string, html string) error {
 	// Case 1: "run" command
 	if step.Name == "run" {
-		// The script is in step.Args
-		script := step.Args
+		var script string
+		var isBackground bool
+
+		if step.Args != "" {
+			// Shortcut: - run: "script"
+			script = step.Args
+		} else {
+			// Full form: - run: { command: "...", background: true }
+			script = step.Params["command"]
+			bgVal := resolveParams(step.Params["background"], scopeParams)
+			isBackground = bgVal == "true"
+		}
 
 		// Substitute parameters
 		// 1. Resolve << parameters.x >>
@@ -144,10 +154,28 @@ func executeStep(cfg *Config, step Step, scopeParams map[string]string, url stri
 		}
 
 		// Execute
-		log.Printf("   🏃 Running: %s", script)
+		if isBackground {
+			log.Printf("   🏃 Running (background): %s", script)
+		} else {
+			log.Printf("   🏃 Running: %s", script)
+		}
+
 		// Use sh -c for complex commands
 		cmd := exec.Command("sh", "-c", script)
 		cmd.Env = os.Environ() // Pass env
+
+		if isBackground {
+			// For background tasks, we don't want to wait for them or capture output
+			// to avoid blocking the plumber or hanging on open pipes.
+			if err := cmd.Start(); err != nil {
+				return fmt.Errorf("background run step failed to start: %w", err)
+			}
+			// We don't call cmd.Wait() here.
+			// Note: This might leave zombie processes if plumber runs for a long time,
+			// but for browsers it's usually fine as they daemonize.
+			return nil
+		}
+
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 

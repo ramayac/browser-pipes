@@ -6,16 +6,19 @@ commands:
       browser:
         type: string
         default: "google-chrome"
+      background:
+        type: string
+        default: "true"
     steps:
-      - run: "echo '🚀 Launching <<parameters.browser>> for {url}'"
-      # Real implementation would be:
-      # - run: "gtk-launch <<parameters.browser>> '{url}'"
+      - run:
+          command: "<<parameters.browser>> '{url}'"
+          background: "<<parameters.background>>"
 
   open_zen_flatpak:
     steps:
-      - run: "echo '🚀 Launching Zen via Flatpak for {url}'"
-      # Real implementation:
-      - run: "flatpak run io.github.zen_browser.zen --new-tab '{url}'"
+      - run:
+          command: "flatpak run io.github.zen_browser.zen --new-tab '{url}'"
+          background: "true"
 
   save_markdown:
     parameters:

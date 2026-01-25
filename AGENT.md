@@ -109,7 +109,7 @@ test-my-feature: build
 The README is the source of truth. Keep it current but concise.
 
 **What to update:**
-- **Makefile Targets table**: Add new targets with description and usage
+- **Makefile Targets table**: Add new targets with description and usage, or if the target changed update the description and usage
 - **Key Features**: Only if adding user-facing functionality
 - **Setup & Configuration**: Update if installation steps change
 - **Architecture**: Only for major structural changes
