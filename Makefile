@@ -1,6 +1,7 @@
 BINARY_NAME=plumber
 MOCKER_NAME=mocker
 BUILD_DIR=bin
+CONFIG?=plumber.example.yaml
 
 .PHONY: all build clean test mock-msg install-config test-read-md
 
@@ -25,14 +26,14 @@ clean:
 	@echo "🧹 Cleaning..."
 	rm -rf $(BUILD_DIR)
 
-# Usage: make mock-msg MSG='{"url":"https://example.com"}'
+# Usage: make mock-msg MSG='{"url":"https://example.com"}' CONFIG=...
 mock-msg: build build-mocks
-	@echo "📨 Sending mock message to Plumber..."
+	@echo "📨 Sending mock message to Plumber (config: $(CONFIG))..."
 	@msg='$(MSG)'; \
 	if [ -z "$$msg" ]; then \
 		msg='{"url":"https://example.com","target":"","timestamp":1679800000}'; \
 	fi; \
-	echo "$$msg" | $(BUILD_DIR)/$(MOCKER_NAME) | $(BUILD_DIR)/$(BINARY_NAME)
+	echo "$$msg" | $(BUILD_DIR)/$(MOCKER_NAME) | $(BUILD_DIR)/$(BINARY_NAME) -config $(CONFIG) run
 
 # Demonstrate functionality with a preset example
 demo: build build-mocks
@@ -41,18 +42,18 @@ demo: build build-mocks
 
 # Usage: make validate-config CONFIG=...
 validate-config: build
-	@echo "🔍 Validating config: $(or $(CONFIG),plumber.example.yaml)"
-	@$(BUILD_DIR)/$(BINARY_NAME) -config $(or $(CONFIG),plumber.example.yaml) validate
+	@echo "🔍 Validating config: $(CONFIG)"
+	@$(BUILD_DIR)/$(BINARY_NAME) -config $(CONFIG) validate
 
-# Usage: make test-config MSG='{"url":"https://example.com"}' CONFIG=plumber.example.yaml
+# Usage: make test-config MSG='{"url":"https://example.com"}' CONFIG=...
 test-config: build build-mocks
-	@echo "🧪 Testing with config: $(or $(CONFIG),plumber.example.yaml)"
+	@echo "🧪 Testing with config: $(CONFIG)"
 	@echo "📨 Sending mock message..."
 	@msg='$(MSG)'; \
 	if [ -z "$$msg" ]; then \
 		msg='{"url":"https://nifmuhammad.medium.com/115-favorite-albums-of-2025-this-time-with-a-short-essay-about-brian-wilson-e12b04ee9e45","target":"","timestamp":1679800000}'; \
 	fi; \
-	echo "$$msg" | $(BUILD_DIR)/$(MOCKER_NAME) | $(BUILD_DIR)/$(BINARY_NAME) -config $(or $(CONFIG),plumber.example.yaml) run
+	echo "$$msg" | $(BUILD_DIR)/$(MOCKER_NAME) | $(BUILD_DIR)/$(BINARY_NAME) -config $(CONFIG) run
 
 # Usage: make test-read-md [URL=https://example.com] [OUTPUT=/tmp/test-articles]
 test-read-md: build-tools

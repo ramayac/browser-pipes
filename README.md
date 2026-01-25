@@ -28,8 +28,8 @@
 | `clean` | Removes the `bin/` directory and built binaries. | `make clean` |
 | `validate-config` | Validates the plumber configuration file. | `make validate-config [CONFIG=path]` |
 | `test-config` | Tests plumber with mock native messaging input. | `make test-config [MSG=...] [CONFIG=...]` |
-| `mock-msg` | Sends a raw JSON message to plumber via mocker. | `make mock-msg [MSG=...]` |
-| `demo` | Runs a predefined demo with a Wikipedia URL. | `make demo` |
+| `mock-msg` | Sends a raw JSON message to plumber via mocker. | `make mock-msg [MSG=...] [CONFIG=...]` |
+| `demo` | Runs a predefined demo with a Wikipedia URL. | `make demo [CONFIG=...]` |
 | `test-read-md` | Tests the markdown extraction tool. | `make test-read-md [URL=...] [OUTPUT=...]` |
 | `install-config` | Creates config directory and installs default `plumber.yaml`. | `make install-config` |
 | `install-host` | Registers plumber as a native messaging host. | `make install-host EXTENSION_ID=...` |
