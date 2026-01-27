@@ -3,7 +3,7 @@ MOCKER_NAME=mocker
 BUILD_DIR=bin
 CONFIG?=plumber.example.yaml
 
-.PHONY: all build clean test mock-msg install-config test-read-md
+.PHONY: all build clean test test-coverage mock-msg install-config test-read-md
 
 all: build build-mocks build-tools
 
@@ -24,11 +24,16 @@ build-tools:
 
 clean:
 	@echo "🧹 Cleaning..."
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) coverage.out
 
 test:
 	@echo "🧪 Running unit tests..."
 	go test -v ./cmd/...
+
+test-coverage:
+	@echo "🧪 Running tests with coverage..."
+	go test -coverprofile=coverage.out ./cmd/...
+	go tool cover -html=coverage.out
 
 # Usage: make mock-msg MSG='{"url":"https://example.com"}' CONFIG=...
 mock-msg: build build-mocks
