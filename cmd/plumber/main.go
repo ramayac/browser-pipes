@@ -26,57 +26,60 @@ type Envelope struct {
 	HTML      string `json:"html,omitempty"` // Optional HTML content for paywalled articles
 }
 
-// --- Global Config ---
-var cfg Config
-
 func main() {
-	// 0. Parse Flags & Subcommands
-	configPath := flag.String("config", "", "Path to configuration file")
-	flag.Parse()
+	if err := run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
 
-	// Default command is "run"
-	cmd := "run"
-	if len(flag.Args()) > 0 {
-		cmd = flag.Arg(0)
+func run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
+	fs := flag.NewFlagSet("plumber", flag.ContinueOnError)
+	configPath := fs.String("config", "", "Path to configuration file")
+	if err := fs.Parse(args); err != nil {
+		return err
 	}
 
-	// 1. Setup Logging (Stderr)
-	log.SetOutput(os.Stderr)
-	log.SetFlags(0) // Custom format
+	cmd := "run"
+	if fs.NArg() > 0 {
+		cmd = fs.Arg(0)
+	}
+
+	log.SetOutput(stderr)
+	log.SetFlags(0)
 
 	if cmd == "schema" {
-		fmt.Println(GenerateJSONSchema())
-		return
+		fmt.Fprintln(stdout, GenerateJSONSchema())
+		return nil
 	}
 
 	log.Println("🔧 Plumber started...")
 
-	// 2. Load Configuration (required for run and validate)
-	if err := loadConfig(*configPath); err != nil {
-		log.Fatalf("❌ Failed to load config: %v", err)
+	var cfg Config
+	if err := loadConfig(*configPath, &cfg, stderr); err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
 	}
 
 	if cmd == "validate" {
 		if err := cfg.Validate(); err != nil {
-			log.Fatalf("❌ Configuration is invalid: %v", err)
+			return fmt.Errorf("configuration is invalid: %w", err)
 		}
 		log.Println("✅ Configuration is valid.")
-		return
+		return nil
 	}
 
 	if cmd == "run" {
 		if err := cfg.Validate(); err != nil {
-			log.Fatalf("❌ Configuration is invalid: %v", err)
+			return fmt.Errorf("configuration is invalid: %w", err)
 		}
-		// 3. Start Native Messaging Loop
-		startLoop()
-	} else {
-		log.Fatalf("❌ Unknown command: %s. usage: plumber [run|validate|schema]", cmd)
+		startLoop(stdin, stdout, &cfg)
+		return nil
 	}
+
+	return fmt.Errorf("unknown command: %s. usage: plumber [run|validate|schema]", cmd)
 }
 
-// loadConfig loads the YAML configuration
-func loadConfig(explicitPath string) error {
+func loadConfig(explicitPath string, cfg *Config, stderr io.Writer) error {
 	var configPath string
 	if explicitPath != "" {
 		configPath = explicitPath
@@ -96,30 +99,23 @@ func loadConfig(explicitPath string) error {
 	}
 	defer f.Close()
 
-	if err := yaml.NewDecoder(f).Decode(&cfg); err != nil {
+	if err := yaml.NewDecoder(f).Decode(cfg); err != nil {
 		return fmt.Errorf("could not decode config: %w", err)
 	}
 
 	if cfg.Version == "" {
-		// Enforce V2
 		return fmt.Errorf("invalid config: missing 'version' (must be '2')")
 	}
 
 	return nil
 }
 
-// startLoop listens on Stdin for Native Messaging messages
-func startLoop() {
-	// Default size limit (10MB)
+func startLoop(stdin io.Reader, stdout io.Writer, cfg *Config) {
 	maxSize := uint32(10 * 1024 * 1024)
 
 	for {
-		// Native Messaging Protocol:
-		// 1. First 4 bytes: length of message (UInt32, Little Endian)
-		// 2. N bytes: The JSON message
-
 		var length uint32
-		err := binary.Read(os.Stdin, binary.LittleEndian, &length)
+		err := binary.Read(stdin, binary.LittleEndian, &length)
 		if err == io.EOF {
 			log.Println("🔌 Stdin closed, exiting.")
 			return
@@ -129,15 +125,13 @@ func startLoop() {
 			return
 		}
 
-		// Cap message size to avoid OOM or malicious input
 		if length > maxSize {
 			log.Printf("❌ Message too large: %d bytes (limit: %d)", length, maxSize)
-			// Skip or exit? Exiting is safer for Native Messaging.
 			return
 		}
 
 		msgBuf := make([]byte, length)
-		_, err = io.ReadFull(os.Stdin, msgBuf)
+		_, err = io.ReadFull(stdin, msgBuf)
 		if err != nil {
 			log.Printf("❌ Error reading message body: %v", err)
 			return
@@ -149,13 +143,11 @@ func startLoop() {
 			continue
 		}
 
-		// Handle the message
-		handleMessage(env)
+		handleMessage(env, stdout, cfg)
 	}
 }
 
-func handleMessage(env Envelope) {
-	// Structured Log
+func handleMessage(env Envelope, stdout io.Writer, cfg *Config) {
 	log.Printf("[%s] [%s] -> [%s] : [%s]",
 		time.Unix(env.Timestamp, 0).Format(time.RFC3339),
 		env.Origin,
@@ -163,25 +155,24 @@ func handleMessage(env Envelope) {
 		env.URL,
 	)
 
-	// Clean URL
 	cleanedURL := cleanURL(env.URL)
 	if cleanedURL != env.URL {
 		log.Printf("   Let's clean that up: %s -> %s", env.URL, cleanedURL)
 	}
 	env.URL = cleanedURL
 
-	if err := ExecuteWorkflowV2(&cfg, env.URL, env.HTML); err != nil {
+	if err := ExecuteWorkflowV2(cfg, env.URL, env.HTML); err != nil {
 		log.Printf("   ❌ Workflow Execution Failed: %v", err)
-		sendResponse("error", fmt.Sprintf("Workflow failed: %v", err))
+		sendResponse("error", fmt.Sprintf("Workflow failed: %v", err), stdout)
 	} else {
-		sendResponse("success", "Workflow executed")
+		sendResponse("success", "Workflow executed", stdout)
 	}
 }
 
 func cleanURL(rawURL string) string {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return rawURL // Return parsing failed, return original
+		return rawURL
 	}
 
 	q := u.Query()
@@ -198,14 +189,12 @@ func cleanURL(rawURL string) string {
 	return u.String()
 }
 
-// --- Response Handling ---
-
 type Response struct {
-	Status  string `json:"status"` // "success" or "error"
+	Status  string `json:"status"`
 	Message string `json:"message"`
 }
 
-func sendResponse(status, message string) {
+func sendResponse(status, message string, stdout io.Writer) {
 	resp := Response{
 		Status:  status,
 		Message: message,
@@ -217,13 +206,12 @@ func sendResponse(status, message string) {
 		return
 	}
 
-	// Native Messaging requires length prefix (uint32 little endian)
-	if err := binary.Write(os.Stdout, binary.LittleEndian, uint32(len(bytes))); err != nil {
+	if err := binary.Write(stdout, binary.LittleEndian, uint32(len(bytes))); err != nil {
 		log.Printf("❌ Failed to write response length: %v", err)
 		return
 	}
 
-	if _, err := os.Stdout.Write(bytes); err != nil {
+	if _, err := stdout.Write(bytes); err != nil {
 		log.Printf("❌ Failed to write response body: %v", err)
 		return
 	}
