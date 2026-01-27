@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/sha256"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -12,8 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"crypto/sha256"
-
 	readability "codeberg.org/readeck/go-readability/v2"
 	md "github.com/JohannesKaufmann/html-to-markdown"
 )
@@ -21,14 +21,20 @@ import (
 var (
 	outputDir        = flag.String("output", "", "Output directory for markdown files (required)")
 	filenameOverride = flag.String("filename", "", "Explicit filename to use (optional)")
+	inputHTML        = flag.String("input", "", "Input HTML file (optional, if hyphen '-' reads from stdin)")
+	sourceURL        = flag.String("url", "", "Source URL for metadata (required if not a positional argument)")
 	verbose          = flag.Bool("verbose", false, "Enable verbose logging")
 )
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [flags] <url>\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Fetches a URL, extracts the article content using go-readability,\n")
-		fmt.Fprintf(os.Stderr, "and saves it as a Markdown file.\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: %s [flags] [url]\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Processes HTML content from a URL, a file, or stdin, extracts the article\n")
+		fmt.Fprintf(os.Stderr, "content using go-readability, and saves it as a Markdown file.\n\n")
+		fmt.Fprintf(os.Stderr, "Examples:\n")
+		fmt.Fprintf(os.Stderr, "  %s --output ./read http://example.com\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  cat page.html | %s --output ./read --url http://example.com\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s --output ./read --input page.html --url http://example.com\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Flags:\n")
 		flag.PrintDefaults()
 	}
@@ -38,11 +44,14 @@ func main() {
 		log.Fatal("❌ Error: --output directory is required")
 	}
 
-	if flag.NArg() < 1 {
-		log.Fatal("❌ Error: URL argument is required")
+	targetURL := *sourceURL
+	if targetURL == "" && flag.NArg() > 0 {
+		targetURL = flag.Arg(0)
 	}
 
-	targetURL := flag.Arg(0)
+	if targetURL == "" {
+		log.Fatal("❌ Error: Source URL is required (via --url or positional argument)")
+	}
 
 	// Validate URL
 	parsedURL, err := url.Parse(targetURL)
@@ -50,23 +59,55 @@ func main() {
 		log.Fatalf("❌ Invalid URL: %s", targetURL)
 	}
 
-	if *verbose {
-		log.Printf("🔍 Fetching: %s", targetURL)
+	// Get HTML content
+	var htmlReader io.Reader
+	var closer io.Closer
+
+	// Decide input source
+	// 1. Explicit file or stdin via --input
+	if *inputHTML != "" {
+		if *inputHTML == "-" {
+			htmlReader = os.Stdin
+		} else {
+			f, err := os.Open(*inputHTML)
+			if err != nil {
+				log.Fatalf("❌ Failed to open input file: %v", err)
+			}
+			htmlReader = f
+			closer = f
+		}
+	} else {
+		// 2. Check if Stdin is a pipe
+		stat, _ := os.Stdin.Stat()
+		if (stat.Mode() & os.ModeCharDevice) == 0 {
+			if *verbose {
+				log.Println("📥 Reading from Stdin...")
+			}
+			htmlReader = os.Stdin
+		} else {
+			// 3. Fallback: Fetch URL
+			if *verbose {
+				log.Printf("🔍 Fetching: %s", targetURL)
+			}
+			resp, err := http.Get(targetURL)
+			if err != nil {
+				log.Fatalf("❌ Failed to fetch URL: %v", err)
+			}
+			if resp.StatusCode != http.StatusOK {
+				resp.Body.Close()
+				log.Fatalf("❌ HTTP error: %s", resp.Status)
+			}
+			htmlReader = resp.Body
+			closer = resp.Body
+		}
 	}
 
-	// Fetch the URL
-	resp, err := http.Get(targetURL)
-	if err != nil {
-		log.Fatalf("❌ Failed to fetch URL: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		log.Fatalf("❌ HTTP error: %s", resp.Status)
+	if closer != nil {
+		defer closer.Close()
 	}
 
 	// Parse with go-readability
-	article, err := readability.FromReader(resp.Body, parsedURL)
+	article, err := readability.FromReader(htmlReader, parsedURL)
 	if err != nil {
 		log.Fatalf("❌ Failed to parse article: %v", err)
 	}
@@ -79,7 +120,6 @@ func main() {
 	}
 
 	// Convert HTML to Markdown
-	// First render the article HTML
 	var htmlBuf strings.Builder
 	if err := article.RenderHTML(&htmlBuf); err != nil {
 		log.Fatalf("❌ Failed to render HTML: %v", err)
@@ -96,7 +136,7 @@ func main() {
 		log.Fatalf("❌ Failed to create output directory: %v", err)
 	}
 
-	// Generate filename from title or URL
+	// Generate filename
 	var filename string
 	if *filenameOverride != "" {
 		filename = *filenameOverride
@@ -116,7 +156,7 @@ func main() {
 
 	outputPath := filepath.Join(*outputDir, filename)
 
-	// Build the full markdown document with metadata
+	// Build the full markdown document
 	var fullMarkdown strings.Builder
 	fullMarkdown.WriteString(fmt.Sprintf("# %s\n\n", article.Title()))
 	if article.Byline() != "" {

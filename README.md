@@ -6,7 +6,7 @@
 
 - **The Toggle**: Instantly switch the current URL from one browser to another (e.g., Chrome -> Firefox) with a single click.
 - **The Cleaner**: Automatically strips tracking parameters like `utm_*`, `fbclid`, and `gclid` before processing.
-- **The Snapshot**: Extracts the main content of a page using `go-readability` and saves it as a clean Markdown file for offline reading.
+- **The Snapshot**: Extracts the main content of a page using `go-readability` and saves it as a clinical Markdown file. Supports multiple input modes (fetching URL directly, reading from Stdin, or reading an HTML file).
 - **Rule-based Routing**: Define regex rules to automatically route specific domains to specific browsers or actions.
 - **Unix-style Logging**: Monitor all activity in real-time using `tail -f` on the Plumber's stderr logs.
 
@@ -83,7 +83,7 @@ commands:
         type: string
         default: "~/Documents/ReadLater"
     steps:
-      - run: "go-read-html --output <<parameters.output_dir>> --url '{url}' --input '{html}' --filename '{url_hash}.md'"
+      - run: "go-read-md --output <<parameters.output_dir>> --url '{url}' --input '{html}' --filename '{url_hash}.md'"
 
 
 jobs:

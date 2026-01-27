@@ -19,8 +19,6 @@ build-mocks:
 build-tools:
 	@echo "🔧 Building go-read-md..."
 	go build -o $(BUILD_DIR)/go-read-md ./cmd/go-read-md
-	@echo "🔧 Building go-read-html..."
-	go build -o $(BUILD_DIR)/go-read-html ./cmd/go-read-html
 
 clean:
 	@echo "🧹 Cleaning..."

@@ -34,7 +34,7 @@ commands:
         type: string
         default: "~/Documents/ReadLater"
     steps:
-      - run: "go-read-html --output <<parameters.output_dir>> --url '{url}' --input '{html}' --filename '{url_hash}.md'"
+      - run: "go-read-md --output <<parameters.output_dir>> --url '{url}' --input '{html}' --filename '{url_hash}.md'"
 
 jobs:
   default_firefox:
