@@ -75,7 +75,7 @@ commands:
         type: string
         default: "~/Documents/ReadLater"
     steps:
-      - run: "go-read-md --output <<parameters.output_dir>> '{url}'"
+      - run: "go-read-md --output <<parameters.output_dir>> --filename '{url_hash}.md' '{url}'"
  
   save_html_markdown:
     parameters:
@@ -83,7 +83,7 @@ commands:
         type: string
         default: "~/Documents/ReadLater"
     steps:
-      - run: "go-read-html --output <<parameters.output_dir>> --url '{url}' --input '{html}'"
+      - run: "go-read-html --output <<parameters.output_dir>> --url '{url}' --input '{html}' --filename '{url_hash}.md'"
 
 
 jobs:

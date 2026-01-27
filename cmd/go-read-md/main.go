@@ -12,13 +12,16 @@ import (
 	"strings"
 	"time"
 
+	"crypto/sha256"
+
 	readability "codeberg.org/readeck/go-readability/v2"
 	md "github.com/JohannesKaufmann/html-to-markdown"
 )
 
 var (
-	outputDir = flag.String("output", "", "Output directory for markdown files (required)")
-	verbose   = flag.Bool("verbose", false, "Enable verbose logging")
+	outputDir        = flag.String("output", "", "Output directory for markdown files (required)")
+	filenameOverride = flag.String("filename", "", "Explicit filename to use (optional)")
+	verbose          = flag.Bool("verbose", false, "Enable verbose logging")
 )
 
 func main() {
@@ -94,11 +97,22 @@ func main() {
 	}
 
 	// Generate filename from title or URL
-	filename := sanitizeFilename(article.Title())
-	if filename == "" {
-		filename = fmt.Sprintf("article_%d", time.Now().Unix())
+	var filename string
+	if *filenameOverride != "" {
+		filename = *filenameOverride
+	} else {
+		titleHash := hashString(targetURL)
+		filename = sanitizeFilename(article.Title())
+		if filename == "" {
+			filename = fmt.Sprintf("article_%s", titleHash)
+		} else {
+			filename = fmt.Sprintf("%s_%s", filename, titleHash)
+		}
 	}
-	filename = filename + ".md"
+
+	if !strings.HasSuffix(filename, ".md") {
+		filename += ".md"
+	}
 
 	outputPath := filepath.Join(*outputDir, filename)
 
@@ -144,4 +158,10 @@ func sanitizeFilename(title string) string {
 	}
 
 	return safe
+}
+
+func hashString(s string) string {
+	h := sha256.New()
+	h.Write([]byte(s))
+	return fmt.Sprintf("%x", h.Sum(nil))[:8]
 }

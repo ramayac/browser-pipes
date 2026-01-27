@@ -136,7 +136,9 @@ func executeStep(cfg *Config, step Step, scopeParams map[string]string, url stri
 		script = resolveParams(script, scopeParams)
 		// 2. Resolve {url} (legacy/convenience)
 		script = strings.ReplaceAll(script, "{url}", url)
-		// 3. Resolve {html} - write to temp file if HTML is present
+		// 3. Resolve {url_hash}
+		script = strings.ReplaceAll(script, "{url_hash}", hashURL(url))
+		// 4. Resolve {html} - write to temp file if HTML is present
 		if html != "" && strings.Contains(script, "{html}") {
 			tmpFile, err := os.CreateTemp("", "browser-pipe-*.html")
 			if err != nil {
