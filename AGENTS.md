@@ -89,7 +89,8 @@ Every change must be testable via Makefile targets.
 4. **Manual integration test**: Load extension, test real browser interaction
 
 **When adding features:**
-- Add test targets to Makefile
+- Add unit tests for your changes
+- Add test targets to Makefile or make sure the test file is being picked up by `make test`
 - Use `tools/mocker` to simulate native messaging input
 - Test edge cases (empty URLs, invalid configs, network failures)
 - Verify error messages are actionable
@@ -143,6 +144,8 @@ The README is the source of truth. Keep it current but concise.
    test-my-tool: build-my-tool
        @./bin/my-tool --test-flag
    ```
+   Or make sure test file is being picked by `make test`.
+
 5. **Update configuration**: Add command to `plumber.example.yaml`
 6. **Validate**: `make validate-config`
 7. **Update README**: Add to Makefile Targets table
