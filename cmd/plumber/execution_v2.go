@@ -60,8 +60,6 @@ func ExecuteWorkflowV2(cfg *Config, url string, html string) error {
 				// Execute Job
 				if err := executeJob(cfg, jobDef, jobRef.Params, url, html); err != nil {
 					log.Printf("   ❌ Job matched but failed: %v", err)
-					// Verify Next? Or stop?
-					// CircleCI stops on failure usually.
 					return err
 				}
 				matched = true
@@ -83,15 +81,29 @@ func ExecuteWorkflowV2(cfg *Config, url string, html string) error {
 }
 
 func executeJob(cfg *Config, job Job, params map[string]string, url string, html string) error {
+	// Create a temporary workspace for the job
+	workspace, err := os.MkdirTemp("", "plumber-job-*")
+	if err != nil {
+		return fmt.Errorf("failed to create job workspace: %w", err)
+	}
+	defer os.RemoveAll(workspace)
+
+	// Initialize parameters with system values
+	jobParams := injectSystemParams(params, url)
+
+	if os.Getenv("DEBUG") == "true" {
+		log.Printf("   📂 Job Workspace: %s", workspace)
+	}
+
 	for _, step := range job.Steps {
-		if err := executeStep(cfg, step, params, url, html); err != nil {
+		if err := executeStep(cfg, step, jobParams, url, html, workspace); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func executeCommand(cfg *Config, cmdName string, cmdDef Command, callParams map[string]string, url string, html string) error {
+func executeCommand(cfg *Config, cmdName string, cmdDef Command, callParams map[string]string, url string, html string, workspace string) error {
 	// 1. Resolve Parameters
 	// Merge callParams with defaults
 	finalParams := make(map[string]string)
@@ -106,16 +118,19 @@ func executeCommand(cfg *Config, cmdName string, cmdDef Command, callParams map[
 		finalParams[k] = v
 	}
 
+	// Always inject system params into command scope
+	finalParams = injectSystemParams(finalParams, url)
+
 	// 2. Execute Steps
 	for _, step := range cmdDef.Steps {
-		if err := executeStep(cfg, step, finalParams, url, html); err != nil {
+		if err := executeStep(cfg, step, finalParams, url, html, workspace); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func executeStep(cfg *Config, step Step, scopeParams map[string]string, url string, html string) error {
+func executeStep(cfg *Config, step Step, scopeParams map[string]string, url string, html string, workspace string) error {
 	// Case 1: "run" command
 	if step.Name == "run" {
 		var script string
@@ -134,11 +149,8 @@ func executeStep(cfg *Config, step Step, scopeParams map[string]string, url stri
 		// Substitute parameters
 		// 1. Resolve << parameters.x >>
 		script = resolveParams(script, scopeParams)
-		// 2. Resolve {url} (legacy/convenience)
-		script = strings.ReplaceAll(script, "{url}", url)
-		// 3. Resolve {url_hash}
-		script = strings.ReplaceAll(script, "{url_hash}", hashURL(url))
-		// 4. Resolve {html} - write to temp file if HTML is present
+
+		// 2. Resolve {html} - write to temp file if HTML is present
 		if html != "" && strings.Contains(script, "{html}") {
 			tmpFile, err := os.CreateTemp("", "browser-pipe-*.html")
 			if err != nil {
@@ -165,6 +177,15 @@ func executeStep(cfg *Config, step Step, scopeParams map[string]string, url stri
 		// Use sh -c for complex commands
 		cmd := exec.Command("sh", "-c", script)
 		cmd.Env = os.Environ() // Pass env
+		cmd.Dir = workspace    // Set current working directory to the workspace
+
+		var capturedOutput strings.Builder
+		if step.Params["save_to"] != "" {
+			cmd.Stdout = &capturedOutput
+		} else {
+			cmd.Stdout = os.Stdout
+		}
+		cmd.Stderr = os.Stderr
 
 		if isBackground {
 			// For background tasks, we don't want to wait for them or capture output
@@ -172,18 +193,20 @@ func executeStep(cfg *Config, step Step, scopeParams map[string]string, url stri
 			if err := cmd.Start(); err != nil {
 				return fmt.Errorf("background run step failed to start: %w", err)
 			}
-			// We don't call cmd.Wait() here.
-			// Note: This might leave zombie processes if plumber runs for a long time,
-			// but for browsers it's usually fine as they daemonize.
 			return nil
 		}
-
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
 
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("run step failed: %w", err)
 		}
+
+		// If save_to is specified, save the output to the parameter scope
+		if saveTo := step.Params["save_to"]; saveTo != "" {
+			output := strings.TrimSpace(capturedOutput.String())
+			log.Printf("   📝 Captured output to << parameters.%s >>: %s", saveTo, output)
+			scopeParams[saveTo] = output
+		}
+
 		return nil
 	}
 
@@ -198,7 +221,7 @@ func executeStep(cfg *Config, step Step, scopeParams map[string]string, url stri
 			resolvedCallParams[k] = resolveParams(v, scopeParams)
 		}
 
-		return executeCommand(cfg, step.Name, cmdDef, resolvedCallParams, url, html)
+		return executeCommand(cfg, step.Name, cmdDef, resolvedCallParams, url, html, workspace)
 	}
 
 	return fmt.Errorf("unknown command or step: %s", step.Name)
@@ -218,4 +241,14 @@ func resolveParams(input string, params map[string]string) string {
 		result = strings.ReplaceAll(result, fmt.Sprintf("<<parameters.%s>>", k), v)
 	}
 	return result
+}
+
+func injectSystemParams(params map[string]string, url string) map[string]string {
+	res := make(map[string]string)
+	for k, v := range params {
+		res[k] = v
+	}
+	res["url"] = url
+	res["url_hash"] = hashURL(url)
+	return res
 }

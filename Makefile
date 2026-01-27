@@ -19,6 +19,8 @@ build-mocks:
 build-tools:
 	@echo "🔧 Building go-read-md..."
 	go build -o $(BUILD_DIR)/go-read-md ./cmd/go-read-md
+	@echo "🔧 Building url-hash..."
+	go build -o $(BUILD_DIR)/url-hash ./cmd/url-hash
 
 clean:
 	@echo "🧹 Cleaning..."

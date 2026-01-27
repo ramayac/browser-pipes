@@ -11,13 +11,13 @@ commands:
         default: "true"
     steps:
       - run:
-          command: "<<parameters.browser>> '{url}'"
+          command: "<<parameters.browser>> '<<parameters.url>>'"
           background: "<<parameters.background>>"
 
   open_zen_flatpak:
     steps:
       - run:
-          command: "flatpak run io.github.zen_browser.zen --new-tab '{url}'"
+          command: "flatpak run io.github.zen_browser.zen --new-tab '<<parameters.url>>'"
           background: "true"
 
   save_url_markdown:
@@ -26,7 +26,11 @@ commands:
         type: string
         default: "~/Documents/ReadLater"
     steps:
-      - run: "go-read-md --output <<parameters.output_dir>> --filename '{url_hash}.md' '{url}'"
+      - run:
+          command: "url-hash <<parameters.url>>"
+          save_to: "custom_hash"
+      - run: "curl -sL '<<parameters.url>>' -o page.html"
+      - run: "go-read-md --output <<parameters.output_dir>> --url '<<parameters.url>>' --input page.html --filename '<<parameters.custom_hash>>.md'"
 
   save_html_markdown:
     parameters:
@@ -34,7 +38,7 @@ commands:
         type: string
         default: "~/Documents/ReadLater"
     steps:
-      - run: "go-read-md --output <<parameters.output_dir>> --url '{url}' --input '{html}' --filename '{url_hash}.md'"
+      - run: "go-read-md --output <<parameters.output_dir>> --url '<<parameters.url>>' --input '{html}' --filename '<<parameters.url_hash>>.md'"
 
 jobs:
   default_firefox:

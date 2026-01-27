@@ -55,6 +55,19 @@ You can then edit it at `~/.config/browser-pipes/plumber.yaml`.
 
 The new configuration system (Version 2) is inspired by CircleCI, allowing for reusable commands, composed jobs, and regex-based workflow routing.
 
+#### Job Workspaces
+Every Job execution creates its own temporary workspace (CWD). This allows steps to share files and state:
+- Step 1: `curl -o page.html <<parameters.url>>`
+- Step 2: `go-read-md --input page.html --url <<parameters.url>>`
+
+#### System Parameters
+Plumber automatically injects several parameters into every Job and Command:
+- `url`: The cleaned and parsed URL from the browser.
+- `url_hash`: A stable 8-character SHA-256 hash of the URL.
+
+#### Capturing Output
+You can capture the `stdout` of a `run` step into a new parameter using the `save_to` field. This parameter can then be used in subsequent steps within the same job.
+
 #### Example `plumber.yaml` (v2)
 
 ```yaml
@@ -67,7 +80,7 @@ commands:
         type: string
         default: "google-chrome"
     steps:
-      - run: "<<parameters.browser>> '{url}'"
+      - run: "<<parameters.browser>> '<<parameters.url>>'"
 
   save_url_markdown:
     parameters:
@@ -75,7 +88,11 @@ commands:
         type: string
         default: "~/Documents/ReadLater"
     steps:
-      - run: "go-read-md --output <<parameters.output_dir>> --filename '{url_hash}.md' '{url}'"
+      - run:
+          command: "url-hash <<parameters.url>>"
+          save_to: "custom_hash"
+      - run: "curl -sL '<<parameters.url>>' -o page.html"
+      - run: "go-read-md --output <<parameters.output_dir>> --url '<<parameters.url>>' --input page.html --filename '<<parameters.custom_hash>>.md'"
  
   save_html_markdown:
     parameters:
@@ -83,7 +100,7 @@ commands:
         type: string
         default: "~/Documents/ReadLater"
     steps:
-      - run: "go-read-md --output <<parameters.output_dir>> --url '{url}' --input '{html}' --filename '{url_hash}.md'"
+      - run: "go-read-md --output <<parameters.output_dir>> --url '<<parameters.url>>' --input '{html}' --filename '<<parameters.url_hash>>.md'"
 
 
 jobs:
