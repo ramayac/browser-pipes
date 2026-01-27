@@ -173,7 +173,7 @@ plumber schema > plumber.schema.json
 
 ## 🤖 Contributing
 
-For AI agents and developers: See [AGENT.md](./AGENT.md) for development guidelines and workflow.
+See [AGENTS.md](./AGENTS.md) for AI development guidelines and workflow.
 
 ---
 
