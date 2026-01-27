@@ -33,3 +33,5 @@ jobs:
           config: .testcoverage.yml
           git-token: ${{ secrets.GITHUB_TOKEN }}
           git-branch: coverage-badge
+          # Simplified path for the badge
+          git-file-name: badge.svg

@@ -1,6 +1,6 @@
 # browser-pipes 🚿
 
-![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ramayac/browser-pipes/coverage-badge/coverage.json)
+![Coverage](https://raw.githubusercontent.com/ramayac/browser-pipes/coverage-badge/badge.svg)
 
 **browser-pipes** is a local Unix-style Native Messaging system that treats browser URLs as a data stream. It allows you to pipe URLs between browsers, automatically clean tracking parameters, and snapshot web pages into clean, readable local files.
 
