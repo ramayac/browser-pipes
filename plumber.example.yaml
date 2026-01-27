@@ -20,7 +20,7 @@ commands:
           command: "flatpak run io.github.zen_browser.zen --new-tab '{url}'"
           background: "true"
 
-  save_markdown:
+  save_url_markdown:
     parameters:
       output_dir:
         type: string
@@ -48,7 +48,7 @@ jobs:
 
   read_markdown:
     steps:
-      - save_markdown
+      - save_url_markdown
 
   read_html:
     steps:
@@ -61,10 +61,14 @@ workflows:
       - read_markdown:
           match: "(?i)(medium\\.com|generic-blog\\.com)"
 
-      # 2. Chrome to Zen (Video/Social)
+      # 2. URL to Markdown (Reading list - HTML for paywalls/dynamic sites)
+      - read_html:
+          match: "(?i)(nytimes\\.com|wsj\\.com|bloomberg\\.com)"
+
+      # 3. Chrome to Zen (Video/Social)
       - social_zen:
           match: "(?i)(youtube\\.com|twitch\\.tv)"
 
-      # 3. Default: Chrome to Firefox
+      # 4. Default: Chrome to Firefox
       - default_firefox:
           match: ".*"

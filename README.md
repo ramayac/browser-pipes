@@ -69,13 +69,22 @@ commands:
     steps:
       - run: "<<parameters.browser>> '{url}'"
 
-  save_markdown:
+  save_url_markdown:
     parameters:
       output_dir:
         type: string
         default: "~/Documents/ReadLater"
     steps:
       - run: "go-read-md --output <<parameters.output_dir>> '{url}'"
+ 
+  save_html_markdown:
+    parameters:
+      output_dir:
+        type: string
+        default: "~/Documents/ReadLater"
+    steps:
+      - run: "go-read-html --output <<parameters.output_dir>> --url '{url}' --input '{html}'"
+
 
 jobs:
   default_firefox:
@@ -85,13 +94,19 @@ jobs:
 
   read_markdown:
     steps:
-      - save_markdown
+      - save_url_markdown
+
+  read_html:
+    steps:
+      - save_html_markdown
 
 workflows:
   smart_routing:
     jobs:
       - read_markdown:
           match: "(?i)(medium\\.com)"
+      - read_html:
+          match: "(?i)(nytimes\\.com|wsj\\.com)"
       - default_firefox:
           match: ".*"
 ```
