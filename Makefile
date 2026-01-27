@@ -26,6 +26,10 @@ clean:
 	@echo "🧹 Cleaning..."
 	rm -rf $(BUILD_DIR)
 
+test:
+	@echo "🧪 Running unit tests..."
+	go test -v ./cmd/...
+
 # Usage: make mock-msg MSG='{"url":"https://example.com"}' CONFIG=...
 mock-msg: build build-mocks
 	@echo "📨 Sending mock message to Plumber (config: $(CONFIG))..."

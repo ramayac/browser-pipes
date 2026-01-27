@@ -25,7 +25,8 @@
 | `build` | Compiles the `plumber` binary into `bin/`. | `make build` |
 | `build-mocks` | Compiles the `mocker` tool for testing. | `make build-mocks` |
 | `build-tools` | Compiles helper tools (`go-read-md`). | `make build-tools` |
-| `clean` | Removes the `bin/` directory and built binaries. | `make clean` |
+| `test` | Runs all unit tests. | `make test` |
+| `clean` | Removes binary files. | `make clean` |
 | `validate-config` | Validates the plumber configuration file. | `make validate-config [CONFIG=path]` |
 | `test-config` | Tests plumber with mock native messaging input. | `make test-config [MSG=...] [CONFIG=...]` |
 | `mock-msg` | Sends a raw JSON message to plumber via mocker. | `make mock-msg [MSG=...] [CONFIG=...]` |
