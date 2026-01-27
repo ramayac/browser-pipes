@@ -27,6 +27,12 @@ jobs:
       - name: Run Tests with Coverage
         run: go test -v -coverprofile=coverage.out ./cmd/...
 
+      - name: Create coverage-badge branch if not exists
+        continue-on-error: true
+        run: |
+          git fetch origin coverage-badge || (git checkout --orphan coverage-badge && git rm -rf . && git commit --allow-empty -m "Initial coverage-badge branch" && git push origin coverage-badge)
+          git checkout master # Switch back to original branch
+
       - name: Generate Coverage Badge
         uses: vladopajic/go-test-coverage@v2
         with:
