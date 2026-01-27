@@ -1,0 +1,21 @@
+# Test coverage configuration
+
+# List of coverage profiles
+profile: coverage.out
+
+# Thresholds for coverage (percentage)
+threshold:
+  # Minimum total coverage
+  total: 70
+  # Minimum coverage per package
+  package: 60
+  # Minimum coverage per file
+  file: 0
+
+# Exclusion rules
+exclude:
+  paths:
+    - ^tools/
+    - ^vendor/
+    - _test\.go$
+    - \.pb\.go$

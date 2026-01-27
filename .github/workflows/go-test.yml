@@ -1,0 +1,32 @@
+name: Go Tests & Coverage
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Run Tests with Coverage
+        run: go test -v -coverprofile=coverage.out ./cmd/...
+
+      - name: Generate Coverage Badge
+        uses: vladopajic/go-test-coverage@v2
+        with:
+          config: .testcoverage.yml
+          git-token: ${{ secrets.GITHUB_TOKEN }}
+          git-branch: coverage-badge
