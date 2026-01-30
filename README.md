@@ -1,5 +1,6 @@
 # browser-pipes 🚿
 
+[![Go Tests & Coverage](https://github.com/ramayac/browser-pipes/actions/workflows/go-test.yml/badge.svg)](https://github.com/ramayac/browser-pipes/actions/workflows/go-test.yml)
 ![Coverage](https://raw.githubusercontent.com/ramayac/browser-pipes/coverage-badge/badge.svg)
 
 **browser-pipes** is a local Unix-style Native Messaging system that treats browser URLs as a data stream. It allows you to pipe URLs between browsers, automatically clean tracking parameters, and snapshot web pages into clean, readable local files.
