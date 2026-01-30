@@ -24,7 +24,7 @@ All behavior should be driven by configuration, not hardcoded logic.
 1. Check if it can be expressed in the existing configuration schema
 2. If not, extend the schema in `cmd/plumber/config_v2.go`
 3. Update `plumber.example.yaml` with working examples
-4. Regenerate schema: `make build && ./bin/plumber schema > plumber.schema.json`
+4. Regenerate schema: `make schema`
 
 **Example**: Instead of hardcoding "send to Firefox", create a parameterized `open_browser` command that accepts a browser name.
 
@@ -36,12 +36,18 @@ All common operations have Makefile targets. Use them.
 
 **Available Targets:**
 - `make build` - Build the plumber binary
-- `make build-tools` - Build helper tools (go-read-md, etc.)
+- `make build-tools` - Build helper tools (go-read-md, url-hash, etc.)
+- `make build-mocks` - Build the native messaging test mocker
 - `make validate-config` - Validate YAML configuration
+- `make test` - Run all unit tests
+- `make test-coverage` - Run tests with coverage reporting
 - `make test-config` - Test plumber with mock messages
 - `make test-read-md` - Test the markdown extraction tool
+- `make demo` - Run a predefined Wikipedia demo
+- `make schema` - Regenerate the JSON configuration schema
 - `make install-config` - Install default configuration
 - `make install-host EXTENSION_ID=...` - Register native messaging host
+- `make uninstall-host` - Remove native messaging host registration
 - `make clean` - Clean build artifacts
 
 **When adding new functionality:**
@@ -154,7 +160,7 @@ The README is the source of truth. Keep it current but concise.
 
 1. **Edit Go structs**: `cmd/plumber/config_v2.go`
 2. **Add validation logic**: `Config.Validate()` method
-3. **Regenerate schema**: `./bin/plumber schema > plumber.schema.json`
+3. **Regenerate schema**: `make schema`
 4. **Update example**: `plumber.example.yaml`
 5. **Test**: `make validate-config`
 6. **Document**: Update README if user-facing
@@ -230,7 +236,8 @@ browser-pipes/
 │   │   ├── main.go       # CLI entry point, subcommands
 │   │   ├── config_v2.go  # Configuration schema and validation
 │   │   └── execution_v2.go # Workflow execution engine
-│   └── go-read-md/       # Article extraction tool
+│   ├── go-read-md/       # Article extraction tool
+│   └── url-hash/         # URL hashing utility
 ├── extension/
 │   ├── background.js     # Extension logic (keep minimal!)
 │   └── manifest.json     # Extension metadata

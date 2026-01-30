@@ -3,7 +3,7 @@ MOCKER_NAME=mocker
 BUILD_DIR=bin
 CONFIG?=plumber.example.yaml
 
-.PHONY: all build clean test test-coverage mock-msg install-config test-read-md
+.PHONY: all build clean test test-coverage mock-msg install-config test-read-md schema
 
 all: build build-mocks build-tools
 
@@ -78,8 +78,11 @@ test-read-md: build-tools
 	echo "   URL: $$url"; \
 	echo "   Output: $$output"; \
 	$(BUILD_DIR)/go-read-md --output "$$output" --verbose "$$url"
-	@echo "✅ Test complete. Check the output directory for results."
 
+schema: build
+	@echo "📄 Generating configuration schema..."
+	@$(BUILD_DIR)/$(BINARY_NAME) -config $(CONFIG) schema > plumber.schema.json
+	@echo "✅ Schema updated: plumber.schema.json"
 
 install-config:
 	@echo "📦 Installing default configuration..."

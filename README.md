@@ -27,7 +27,7 @@
 | `all` | Builds plumber, mocker, and all tools. | `make all` |
 | `build` | Compiles the `plumber` binary into `bin/`. | `make build` |
 | `build-mocks` | Compiles the `mocker` tool for testing. | `make build-mocks` |
-| `build-tools` | Compiles helper tools (`go-read-md`). | `make build-tools` |
+| `build-tools` | Compiles helper tools (`go-read-md`, `url-hash`). | `make build-tools` |
 | `test` | Runs all unit tests. | `make test` |
 | `test-coverage` | Runs tests and opens coverage report. | `make test-coverage` |
 | `clean` | Removes binary files and coverage data. | `make clean` |
@@ -152,9 +152,11 @@ plumber schema > plumber.schema.json
 
 
 ### 3. Install Native Messaging Host
-> [!NOTE]
-> Detailed installation for the Native Messaging manifest is currently a manual step. You need to create a JSON manifest file for your browser (e.g., `~/.config/google-chrome/NativeMessagingHosts/com.browser.pipe.json`) pointing to the `plumber` binary.
-
+Use the automated installer to register the Plumber as a Native Messaging host for your browsers:
+```bash
+make install-host EXTENSION_ID=your_extension_id
+```
+(Get the ID from `chrome://extensions` after loading the unpacked extension).
 ### 4. Load the Extension
 1. Open your browser's extension page (e.g., `chrome://extensions`).
 2. Enable "Developer mode".
