@@ -30,8 +30,10 @@ jobs:
       - name: Create coverage-badge branch if not exists
         continue-on-error: true
         run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
           git fetch origin coverage-badge || (git checkout --orphan coverage-badge && git rm -rf . && git commit --allow-empty -m "Initial coverage-badge branch" && git push origin coverage-badge)
-          git checkout master # Switch back to original branch
+          git checkout ${{ github.head_ref || github.ref_name }}
 
       - name: Generate Coverage Badge
         uses: vladopajic/go-test-coverage@v2
